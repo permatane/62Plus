@@ -138,13 +138,14 @@ class Kazefuri : MainAPI() {
             loadExtractor(fixUrl(src), data, subtitleCallback, callback)
         }
 
+        // FINAL FIX: Gunakan builder lambda dengan parameter eksplisit untuk link
         document.select("video source[src]").forEach {
             val src = it.attr("src")
             val label = it.attr("label").takeIf { it.isNotEmpty() } ?: "720p"
             val qualityInt = getQualityFromName(label)
             
-            callback(newExtractorLink(this.name, this.name, src, "") {
-                this.quality = qualityInt
+            callback(newExtractorLink(this.name, this.name, src, referrer = "") { link ->
+                link.quality = qualityInt
             })
         }
 
