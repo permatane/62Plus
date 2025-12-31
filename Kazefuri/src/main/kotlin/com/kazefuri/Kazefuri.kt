@@ -5,6 +5,10 @@ import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.SubtitleFile
 import com.lagradost.cloudstream3.app
 import org.jsoup.nodes.Document
+import kotlin.text.RegexOption
+import app.cloudstream.cloudstream3.newHomePageResponse
+import app.cloudstream.cloudstream3.newEpisode
+import app.cloudstream.cloudstream3.newExtractorLink
 
 class Kazefuri : MainAPI() {
     override var mainUrl = "https://sv3.kazefuri.cloud"
@@ -15,17 +19,18 @@ class Kazefuri : MainAPI() {
     override val hasQuickSearch = true
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val document = app.get("$mainUrl/").document
-        val homeItems = document.select("a").mapNotNull { it.toSearchResult() }
-            .distinctBy { it.url }
+    val document = app.get("$mainUrl/").document
+    val homeItems = document.select("a").mapNotNull { it.toSearchResult() }
+        .distinctBy { it.url }
 
-        val homePageLists = mutableListOf<HomePageList>()
-        if (homeItems.isNotEmpty()) {
-            homePageLists.add(HomePageList("Series Tersedia / Populer", homeItems))
-        }
-
-        return HomePageResponse(homePageLists)
+    val homePageLists = mutableListOf<HomePageList>()
+    if (homeItems.isNotEmpty()) {
+        homePageLists.add(HomePageList("Series Tersedia / Populer", homeItems))
     }
+
+    // Gunakan newHomePageResponse agar tidak deprecated
+    return newHomePageResponse("Home", homePageLists)
+}
 
     private fun org.jsoup.nodes.Element.toSearchResult(): SearchResponse? {
         val href = this.attr("href").takeIf { it.startsWith("/") || it.startsWith("http") } ?: return null
@@ -63,86 +68,89 @@ class Kazefuri : MainAPI() {
     }
 
     override suspend fun load(url: String): LoadResponse {
-        val document = app.get(url).document
+    val document = app.get(url).document
 
-        val title = document.selectFirst("h1, h2, h3")?.ownText()?.trim()
-            ?: document.selectFirst("title")?.text()?.substringBefore(" - Kazefuri")?.trim()
-            ?: ""
+    val title = document.selectFirst("h1, h2, h3")?.ownText()?.trim()
+        ?: document.selectFirst("title")?.text()?.substringBefore(" - Kazefuri")?.trim()
+        ?: ""
 
-        val description = document.select("p").joinToString("\n") { it.text().trim() }
-            .takeIf { it.isNotEmpty() }
-            ?: document.selectFirst("h2:contains(Synopsis), h3:contains(Sinopsis)")?.nextElementSibling()?.text()
+    val description = document.select("p").joinToString("\n") { it.text().trim() }
+        .takeIf { it.isNotEmpty() }
+        ?: document.selectFirst("h2:contains(Synopsis), h3:contains(Sinopsis)")?.nextElementSibling()?.text()
 
-        // Poster extraction di detail page (common selectors)
-        val posterUrl = document.selectFirst("img.cover, img.poster, img.thumbnail, img[src*=/cover/], img[src*=/poster/], img[src*=/thumb/], img:first-of-type")
-            ?.absUrl("src")
-            ?: document.selectFirst("img[src$=.jpg], img[src$=.png], img[src$=.webp]")?.absUrl("src")
-            ?: document.selectFirst("img[data-src]")?.absUrl("data-src")  // Lazyload
+    val posterUrl = document.selectFirst("img.cover, img.poster, img.thumbnail, img[src*=/cover/], img[src*=/poster/]")
+        ?.absUrl("src")
+        ?: document.selectFirst("img[src$=.jpg], img[src$=.png], img[src$=.webp]")?.absUrl("src")
+        ?: document.selectFirst("img[data-src]")?.absUrl("data-src")
 
-        val episodes = mutableListOf<Episode>()
+    val episodes = mutableListOf<Episode>()
 
-        document.select("a[href*=-episode-]").forEach { epElement ->
-            val epHref = fixUrl(epElement.attr("href"))
-            val epText = epElement.text().trim()
+document.select("a[href*=-episode-]").forEach { epElement ->
+    val epHref = fixUrl(epElement.attr("href"))
+    val epText = epElement.text().trim()
 
-            val epNum = Regex("-episode-(\\d+)").find(epHref)?.groupValues?.get(1)?.toIntOrNull()
-                ?: Regex("Episode[\\s-]*(\\d+)", ignoreCase = true).find(epText)?.groupValues?.get(1)?.toIntOrNull()
-                ?: Regex("(\\d+)").find(epText)?.groupValues?.get(1)?.toIntOrNull()
-                ?: 0
+    val epNum = Regex("-episode-(\\d+)").find(epHref)?.groupValues?.get(1)?.toIntOrNull()
+        ?: Regex("Episode[\\s-]*(\\d+)", RegexOption.IGNORE_CASE).find(epText)?.groupValues?.get(1)?.toIntOrNull()
+        ?: Regex("^(\\d+)", RegexOption.IGNORE_CASE).find(epText)?.groupValues?.get(1)?.toIntOrNull()
+        ?: 0
 
-            val epName = epText.ifEmpty { "Episode $epNum" }
+    val epName = epText.ifEmpty { "Episode $epNum" }
 
-            var seasonNum = 1
-            var current: org.jsoup.nodes.Element? = epElement
-            while (current != null) {
-                current = current.previousElementSibling()
-                if (current == null) break
-                if (current.tagName().matches(Regex("h[1-6]"))) {
-                    val headingText = current.text()
-                    val seasonMatch = Regex("(Musim|Season|Part)[\\s-]*(\\d+)", ignoreCase = true).find(headingText)
-                    if (seasonMatch != null) {
-                        seasonNum = seasonMatch.groupValues[2].toIntOrNull() ?: 1
-                        break
-                    }
-                }
-            }
-
-            if (epNum > 0) {
-                episodes.add(Episode(epHref, epName, seasonNum, epNum))
+    var seasonNum = 1
+    var current = epElement.previousElementSibling()
+    while (current != null) {
+        if (current.tagName().matches(Regex("h[1-6]"))) {
+            val heading = current.text()
+            Regex("(Musim|Season|Part)[\\s-]*(\\d+)", RegexOption.IGNORE_CASE).find(heading)?.let {
+                seasonNum = it.groupValues[2].toIntOrNull() ?: 1
+                break
             }
         }
-
-        episodes.sortBy { it.season * 10000 + (it.episode ?: 0) }
-
-        return newAnimeLoadResponse(title, url, TvType.Anime) {
-            this.posterUrl = posterUrl  // Akan null jika tidak ada gambar
-            this.plot = description
-            this.tags = emptyList()
-            addEpisodes(DubStatus.Subbed, episodes)
-        }
+        current = current.previousElementSibling()
     }
 
-    override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
-        val document = app.get(data).document
-
-        document.select("iframe[src], iframe[data-src], video source[src], button[data-src], a[data-url]").forEach {
-            val src = it.attr("src").takeIf { it.isNotEmpty() } 
-                ?: it.attr("data-src")?.takeIf { it.isNotEmpty() } 
-                ?: it.attr("data-url")?.takeIf { it.isNotEmpty() } 
-                ?: return@forEach
-            loadExtractor(fixUrl(src), data, subtitleCallback, callback)
-        }
-
-        document.select("video source[src]").forEach {
-            val quality = it.attr("label").takeIf { it.isNotEmpty() } ?: "720p"
-            callback(ExtractorLink(name, name, it.attr("src"), "", getQualityFromName(quality)))
-        }
-
-        return document.select("iframe, video").isNotEmpty()
+    if (epNum > 0) {
+        episodes.add(newEpisode(epHref) {
+            this.name = epName
+            this.season = seasonNum
+            this.episode = epNum
+        })
     }
+}
+    episodes.sortBy { 
+        ((it.season ?: 1) * 10000) + (it.episode ?: 0) 
+    }
+
+    return newAnimeLoadResponse(title, url, TvType.Anime) {
+        this.posterUrl = posterUrl
+        this.plot = description
+        this.tags = emptyList()
+        addEpisodes(DubStatus.Subbed, episodes)
+    }
+}
+override suspend fun loadLinks(
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
+    val document = app.get(data).document
+
+    // Main embeds/players (iframe, data-src, dll.)
+    document.select("iframe[src], iframe[data-src], video source[src], button[data-src], a[data-url]").forEach {
+        val src = it.attr("src").takeIf { it.isNotEmpty() }
+            ?: it.attr("data-src").takeIf { it.isNotEmpty() }
+            ?: it.attr("data-url").takeIf { it.isNotEmpty() }
+            ?: return@forEach
+        loadExtractor(fixUrl(src), data, subtitleCallback, callback)
+    }
+
+    // Fallback: direct <video><source src="..."> (gunakan newExtractorLink)
+    document.select("video source[src]").forEach {
+        val src = it.attr("src")
+        val label = it.attr("label").takeIf { it.isNotEmpty() } ?: "720p"
+        callback(newExtractorLink(this.name, this.name, src, referer = "", quality = getQualityFromName(label)))
+    }
+
+    return true
 }
