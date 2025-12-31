@@ -4,6 +4,8 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import org.jsoup.nodes.Document
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.text.RegexOption
+import kotlinx.coroutines.withTimeoutOrNull
 
 class Kazefuri : MainAPI() {
     override var mainUrl = "https://sv3.kazefuri.cloud"
@@ -157,18 +159,9 @@ class Kazefuri : MainAPI() {
                     val hostUrl = linkElement.attr("href").takeIf { it.isNotEmpty() } ?: return@forEach
                     val fullUrl = fixUrl(hostUrl)
 
-                    loadExtractor(fullUrl, data, subtitleCallback) { extractorLink ->
-                        hasLinks = true
-                        // Gunakan builder untuk override quality jika perlu
-                        callback(newExtractorLink(
-                            extractorLink.source,
-                            extractorLink.name,
-                            extractorLink.url,
-                            extractorLink.referrer
-                        ) {
-                            this.quality = if (extractorLink.quality == Qualities.Unknown.value) qualityInt else extractorLink.quality
-                        })
-                    }
+                    // loadExtractor sudah suspend, jadi bisa dipanggil langsung di coroutine
+                    loadExtractor(fullUrl, data, subtitleCallback, callback)
+                    hasLinks = true
                 }
             }
         } catch (e: Exception) { }

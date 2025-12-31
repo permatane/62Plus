@@ -15,6 +15,6 @@ class KazefuriPlugin {
     }
 
     fun load(context: Context) {
-        // Kosong
+        // Kosong untuk provider sederhana
     }
 }
