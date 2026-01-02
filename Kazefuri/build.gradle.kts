@@ -21,6 +21,7 @@ cloudstream {
         "TvSeries",
         "Anime",
     )
-    isCrossPlatform = true
+    
     iconUrl = "https://www.google.com/s2/favicons?domain=sv3.kazefuri.cloud&sz=%size%"
+    isCrossPlatform = false
 }
