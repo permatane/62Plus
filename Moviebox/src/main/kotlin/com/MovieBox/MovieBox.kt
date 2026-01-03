@@ -133,7 +133,7 @@ class MovieBox : MainAPI() {
     }
 
     override val mainPage = mainPageOf(
-        "872031290915189720" to "Tren Saat ini"
+        "872031290915189720" to "Tren Saat ini",
         "997144265920760504" to "Trending Hollywood",
         "6528093688173053896" to "Trending Indonesia",
         "7736026911486755336"  to "Western Series",
