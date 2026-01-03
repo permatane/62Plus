@@ -1,4 +1,4 @@
-package com.javsek
+package com.Javsek
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
