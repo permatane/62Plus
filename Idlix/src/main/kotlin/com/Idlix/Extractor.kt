@@ -47,7 +47,7 @@ class Jeniusplay : ExtractorApi() {
                     getAndUnpack(script.data()).substringAfter("\"tracks\":[").substringBefore("],")
                 AppUtils.tryParseJson<List<Tracks>>("[$subData]")?.map { subtitle ->
                     subtitleCallback.invoke(
-                        SubtitleFile(
+                        newSubtitleFile(
                             getLanguage(subtitle.label ?: ""),
                             subtitle.file
                         )
