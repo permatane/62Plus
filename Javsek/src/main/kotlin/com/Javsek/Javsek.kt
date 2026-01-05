@@ -1,9 +1,12 @@
 package com.Javsek
 
-import android.util.Log
-import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
+import org.jsoup.nodes.Element
+import kotlin.text.Regex
+import android.util.Base64
+import android.util.Log
+import com.lagradost.cloudstream3.LoadResponse.Companion.addActors
 
 class Javsek : MainAPI() {
     override var mainUrl = "https://javsek.net"
@@ -29,30 +32,24 @@ private val mainHeaders = mapOf(
 //       "$mainUrl/category/censored/page/" to "Censored",
     )
     
-    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (page == 1)
-            mainUrl + request.data
-        else
-            "${mainUrl}${request.data}page/$page/"
-
-        val document = app.get(url).document
-
-        val items = doc.select("article").mapNotNull { article ->
-            val a = article.selectFirst("a") ?: return@mapNotNull null
-            val title = article.selectFirst("h2")?.text() ?: return@mapNotNull null
-            val posterUrl = article.selectFirst("img")?.attr("src")
-
-
-        newMovieSearchResponse(title, href, TvType.NSFW) {
-            this.posterUrl = posterUrl
-            this.posterHeaders = mainHeaders                     
-            }
+    ooverride suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        val document = if (page == 1) {
+            app.get("${request.data}/", headers = mainHeaders).document
+        } else {
+            app.get("${request.data}/page/$page/", headers = mainHeaders).document
         }
+        val items = document.select("main#primary div.col-md-grid div.box-item div.box-content, div.tabcontent li")
 
+        val hasNext = !request.name.contains("Update")
+
+        val home = items.mapNotNull { it.toSearchResponse() }
         return newHomePageResponse(
-            request.name,
-            items,
-            hasNextPage = true
+            list = HomePageList(
+                name = request.name,
+                list = home,
+                isHorizontalImages = true
+            ),
+            hasNext = hasNext
         )
     }
 
@@ -92,24 +89,98 @@ private val mainHeaders = mapOf(
 
     // ================= VIDEO =================
 
-    override fun loadLinks(
+   override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
+        val document = app.get(data, headers = mainHeaders).text
 
-        val document = app.get(data).document
+        val regex = Regex(pattern = "\"iframe_url\":\"([^\"]*)\"", options = setOf(RegexOption.IGNORE_CASE))
+        val iframe = regex.findAll(document)
 
-        document.select("iframe[src]").forEach { iframe ->
-            val src = iframe.attr("src")
-            if (src.isNotBlank()) {
-                loadExtractor(
-                    fixUrl(src),
-                    data,
-                    subtitleCallback,
-                    callback
-                )
+        iframe.forEach { iframeMatch ->
+            val iframeEncoded = iframeMatch.groupValues[1]
+            val iframeCoz = base64Decode(iframeEncoded)
+
+
+            val iframeAl = app.get(iframeCoz, mainHeaders).text
+
+            val frameBaseRegex = Regex(pattern = "frameBase = '([^']*)'", options = setOf(RegexOption.IGNORE_CASE))
+            val paramRegex = Regex(pattern = "param = '([^']*)'", options = setOf(RegexOption.IGNORE_CASE))
+            val olidRegex = Regex(pattern = "OLID = '([^']*)'", options = setOf(RegexOption.IGNORE_CASE))
+
+            val frameBase = frameBaseRegex.find(iframeAl)?.groupValues?.get(1)
+            val param = paramRegex.find(iframeAl)?.groupValues?.get(1)
+            val olid = olidRegex.find(iframeAl)?.groupValues?.get(1)
+
+            if (frameBase != null && param != null && olid != null) {
+                val olidReverse = olid.reversed()
+                val urlOlustur = "$frameBase?$param=$olidReverse"
+
+
+                try {
+                    val sonUrlAl = app.get(urlOlustur, mainHeaders).document
+                    val scriptAl = sonUrlAl.selectFirst("script:containsData(eval)")?.data()
+
+                    if (scriptAl != null) {
+                        val jsUnpacker = getAndUnpack(scriptAl)
+
+                        val hlsLinkRegex = Regex(pattern = "\"hls[0-9]+\":\"([^\"]*)\"", options = setOf(RegexOption.IGNORE_CASE))
+                        val hlsler = hlsLinkRegex.findAll(jsUnpacker)
+
+                        hlsler.forEach { hls ->
+                            val m3u8 = hls.groupValues[1]
+                            val videoLink = if (!m3u8.contains("http")) {
+                                "https://javclan.com$m3u8"
+                            } else {
+                                m3u8
+                            }
+
+                            callback.invoke(
+                                newExtractorLink(
+                                    this.name,
+                                    this.name,
+                                    videoLink,
+                                    ExtractorLinkType.M3U8
+                                ) {
+                                    this.referer = "${mainUrl}/"
+                                }
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                }
+            }
+            val directBaseRegex = Regex(pattern = "var directBase = '([^']*)'", options = setOf(RegexOption.IGNORE_CASE))
+            val directBase = directBaseRegex.find(iframeAl)?.groupValues?.get(1)
+
+            if (directBase != null) {
+
+                val suffixRegex = Regex(pattern = "var suffix = '([^']*)'", options = setOf(RegexOption.IGNORE_CASE))
+                val suffix = suffixRegex.find(iframeAl)?.groupValues?.get(1) ?: ""
+
+                if (olid != null) {
+                    val olidReversed = olid.reversed()
+
+                    val decodedId = try {
+                        olidReversed.chunked(2)
+                            .map { it.toInt(16).toChar() }
+                            .joinToString("")
+                    } catch (e: Exception) {
+                        null
+                    }
+
+                    if (decodedId != null) {
+                        val vide0Url = "$directBase$decodedId$suffix"
+
+                        try {
+                            loadExtractor(vide0Url, data, subtitleCallback, callback)
+                        } catch (e: Exception) {
+                        }
+                    }
+                }
             }
         }
 
