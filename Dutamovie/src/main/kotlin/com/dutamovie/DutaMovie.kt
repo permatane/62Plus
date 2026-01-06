@@ -24,7 +24,7 @@ open class DutaMovie : MainAPI() {
     override val hasMainPage = true
     override var lang = "id"
     override val supportedTypes =
-            setOf(TvType.Movie)
+            setOf(TvType.NSFW)
     
 
     override val mainPage =
@@ -51,9 +51,8 @@ open class DutaMovie : MainAPI() {
         val href = fixUrl(this.selectFirst("a")!!.attr("href"))
         val ratingText = this.selectFirst("div.gmr-rating-item")?.ownText()?.trim()
         val posterUrl = fixUrlNull(this.selectFirst("a > img")?.getImageAttr()).fixImageQuality()
-        val quality =
-                this.select("div.gmr-qual, div.gmr-quality-item > a").text().trim().replace("-", "")
-        return if (quality.isEmpty()) {
+        
+                return if (quality.isEmpty()) {
             val episode =
                     Regex("Episode\\s?([0-9]+)")
                             .find(title)
@@ -61,7 +60,7 @@ open class DutaMovie : MainAPI() {
                             ?.getOrNull(1)
                             ?.toIntOrNull()
                             ?: this.select("div.gmr-numbeps > span").text().toIntOrNull()
-            newAnimeSearchResponse(title, href, TvType.TvSeries) {
+            newAnimeSearchResponse(title, href, TvType.NSFW) {
                 this.posterUrl = posterUrl
                 addSub(episode)
                 this.score = Score.from10(ratingText?.toDoubleOrNull())
