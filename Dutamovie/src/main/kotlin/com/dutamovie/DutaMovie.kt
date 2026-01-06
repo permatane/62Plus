@@ -1,4 +1,4 @@
-package com.dutamovie
+package com.Dutamovie
 
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.LoadResponse.Companion.addActors
