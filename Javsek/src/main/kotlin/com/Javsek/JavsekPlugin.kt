@@ -1,12 +1,13 @@
 package com.Javsek
 
-import android.content.Context
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
+import android.content.Context
 
 @CloudstreamPlugin
-class JavsekPlugin: Plugin() {
-    override fun load() {
+class JavsekuPlugin: Plugin() {
+    override fun load(context: Context) {
+        // All providers should be added in this manner. Please don't edit the providers list directly.
         registerMainAPI(Javsek())
     }
 }
