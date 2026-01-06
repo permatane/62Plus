@@ -5,7 +5,7 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 
-class JavSek : MainAPI() {
+class Javsek : MainAPI() {
     override var mainUrl = "https://javsek.net"
     override var name = "JavSek"
     override val hasMainPage = true
