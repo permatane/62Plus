@@ -18,22 +18,24 @@ open class DutaMovie : MainAPI() {
     companion object {
         var context: android.content.Context? = null
     }
-    override var mainUrl = "https://fuelfitnessusa.com"
+    override var mainUrl = "https://javsek.net/"
     private var directUrl: String? = null
-    override var name = "DutaMovie🎉"
+    override var name = "Javs"
     override val hasMainPage = true
     override var lang = "id"
     override val supportedTypes =
-            setOf(TvType.Movie, TvType.TvSeries, TvType.Anime, TvType.AsianDrama)
+            setOf(TvType.Movie)
     
 
     override val mainPage =
             mainPageOf(
-                    "category/box-office/page/%d/" to "Box Office",
-                    "category/serial-tv/page/%d/" to "Serial TV",
-                    "category/animation/page/%d/" to "Animasi",
-                    "country/korea/page/%d/" to "Serial TV Korea",
-                    "country/indonesia/page/%d/" to "Serial TV Indonesia",
+           //     https://javsek.net/category/indo-sub/
+                    "category/indo-sub/page/%d/" to "Indosub",
+            //        "category/box-office/page/%d/" to "Box Office",
+             //       "category/serial-tv/page/%d/" to "Serial TV",
+            //        "category/animation/page/%d/" to "Animasi",
+            //        "country/korea/page/%d/" to "Serial TV Korea",
+            //        "country/indonesia/page/%d/" to "Serial TV Indonesia",
             )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
