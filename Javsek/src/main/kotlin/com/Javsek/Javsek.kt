@@ -14,8 +14,8 @@ class Javsek : MainAPI() {
 https://javsek.net/category/amateur/page/2/
     override val mainPage = mainPageOf(
         "page/%d/" to "Terbaru",
-        "category/indo-sub/page/%d/" to "Sub Indo"
-        "category/english-sub/page/%d/" to "Sub English"
+        "category/indo-sub/page/%d/" to "Sub Indo",
+        "category/english-sub/page/%d/" to "Sub English",
         "category/jav-reducing-mosaic-decensored-streaming-and-download/page/%d/" to "Reducing Mosaic",
         "category/amateur/page/%d/" to "Amateur",
         "category/chinese-porn-streaming/page/%d/" to "China",
