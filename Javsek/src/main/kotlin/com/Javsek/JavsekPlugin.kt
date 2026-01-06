@@ -8,6 +8,21 @@ import com.lagradost.cloudstream3.plugins.Plugin
 class JavsekPlugin: Plugin() {
     override fun load() {
         registerMainAPI(Javsek())
+        registerExtractorAPI(Dingtezuni())
+        registerExtractorAPI(Bingezove())
+        registerExtractorAPI(Mivalyo())
+        registerExtractorAPI(Hglink())
+        registerExtractorAPI(Ryderjet())
+        registerExtractorAPI(Ghbrisk())
+        registerExtractorAPI(Dhcplay())
+        registerExtractorAPI(Movearnpre())
+        registerExtractorAPI(Streamcasthub())
+        registerExtractorAPI(Dm21upns())
+        registerExtractorAPI(Dm21())
+        registerExtractorAPI(Dintezuvio())
+        registerExtractorAPI(Dm21embed())
+        registerExtractorAPI(Veev())
+        registerExtractorAPI(Minochinos())
     }
 }
 
