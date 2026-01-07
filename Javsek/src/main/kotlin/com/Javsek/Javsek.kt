@@ -171,7 +171,6 @@ override suspend fun loadLinks(
                         ) {
                             referer = playerUrl
                             quality = Qualities.Unknown.value
-                            isM3u8 = true
                         }
                     )
                 }
