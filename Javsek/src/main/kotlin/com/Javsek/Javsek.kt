@@ -25,7 +25,7 @@ class Javsek : MainAPI() {
 
     override val mainPage = mainPageOf(
         "" to "Latest",
-        "category/indo-sub" to "Sub Indo"
+        "category/indo-sub" to "Sub Indo",
         "category/english-sub" to "Sub English",
         "category/jav-reducing-mosaic-decensored-streaming-and-download" to "Reducing Mosaic",
         "category/amateur" to "Amateur",
