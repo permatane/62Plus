@@ -200,4 +200,5 @@ class Javsek : MainAPI() {
     }
 
     return found
+   }
 }
