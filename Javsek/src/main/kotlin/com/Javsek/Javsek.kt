@@ -17,7 +17,7 @@ class Javsek : MainAPI() {
     override val hasQuickSearch = false
     override val hasDownloadSupport = true
     override val supportedTypes = setOf(TvType.NSFW)
-    override val vpnStatus = VPNStatus.MightBeNeeded
+
 
     /* =========================
        USER AGENT (MANUAL)
@@ -170,75 +170,33 @@ override suspend fun loadLinks(
     callback: (ExtractorLink) -> Unit
 ): Boolean {
 
-    val document = app.get(
-        data,
-        headers = mapOf(
-            "User-Agent" to BROWSER_UA,
-            "Referer" to mainUrl
-        )
-    ).document
-
-    // 🔑 Ambil post ID (wajib untuk AJAX)
-    val postId = document
-        .selectFirst("div#muvipro_player_content_id")
-        ?.attr("data-id")
-
-    var found = false
-
-    // =========================
-    // MODE 1: AJAX PLAYER (MUVIPRO)
-    // =========================
-    if (!postId.isNullOrEmpty()) {
-        document.select("div.tab-content-ajax").forEach { tab ->
-            try {
-                val ajaxDoc = app.post(
-                    "$mainUrl/wp-admin/admin-ajax.php",
-                    data = mapOf(
-                        "action" to "muvipro_player_content",
-                        "tab" to tab.attr("id"),
-                        "post_id" to postId
-                    ),
-                    headers = mapOf(
-                        "User-Agent" to BROWSER_UA,
-                        "Referer" to data
-                    )
-                ).document
-
-                ajaxDoc.select("iframe").forEach { iframe ->
-                    val src = iframe.attr("src")
-                    if (src.startsWith("http")) {
-                        found = true
-                        loadExtractor(
-                            src,
-                            data,
-                            subtitleCallback,
-                            callback
-                        )
-                    }
-                }
-            } catch (_: Exception) {
-            }
-        }
-    }
-
-    // =========================
-    // MODE 2: FALLBACK IFRAME
-    // =========================
-    if (!found) {
+  val document = app.get(data).document
+        
+        // 1. Ambil semua iframe
         document.select("iframe").forEach { iframe ->
             val src = iframe.attr("src")
-            if (src.startsWith("http")) {
-                found = true
-                loadExtractor(
-                    src,
-                    data,
-                    subtitleCallback,
-                    callback
-                )
+            if (src.isNotEmpty()) {
+                val fixedUrl = fixUrl(src)
+                
+                // Khusus untuk Earnvid/Vidhide, kita gunakan extractor Vidguard 
+                // karena mereka menggunakan base code yang sama (seperti terlihat di player.txt)
+                if (fixedUrl.contains("earnvid.com") || fixedUrl.contains("vidhide")) {
+                    loadExtractor(fixedUrl, data, subtitleCallback, callback)
+                } else {
+                    // Gunakan extractor otomatis untuk provider lain (Doodstream, dll)
+                    loadExtractor(fixedUrl, data, subtitleCallback, callback)
+                }
             }
         }
-    }
 
-    return found
- }
+        // 2. Scan link manual di dalam konten (Tombol Download/Stream)
+        document.select("div.entry-content a").forEach { link ->
+            val href = link.attr("href")
+            if (href.contains("earnvid") || href.contains("dood") || href.contains("wish") || href.contains("filelions")) {
+                loadExtractor(fixUrl(href), data, subtitleCallback, callback)
+            }
+        }
+
+        return true
+    }
 }
