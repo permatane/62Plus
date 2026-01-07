@@ -149,7 +149,7 @@ class Javsek : MainAPI() {
         val playerPages = data.split("||").distinct()
         var found = false
 
-        // Domain HLS yang TERBUKTI dari Javsek
+        // Domain HLS yang sudah terbukti dari Javsek
         val hlsRegex = Regex(
             """https?:\/\/(sdqm\.lavonadesign\.sbs|nomtre\.upns\.pro|iplayerhls\.com)[^\s"'<>]+"""
         )
@@ -164,30 +164,30 @@ class Javsek : MainAPI() {
                     )
                 ).text
 
-    hlsRegex.findAll(html)
-    .map { it.value }
-    .distinct()
-    .mapNotNull { url ->
-        when {
-            url.endsWith(".m3u8", true) -> url
-            url.endsWith(".txt", true) -> url.replaceAfterLast('.', "m3u8")
-            else -> null
-        }
-    }
-    .forEach { hls ->
-        found = true
-        callback(
-            newExtractorLink(
-                source = name,
-                name = "HLS",
-                url = hls
-            ) {
-                referer = playerUrl
-                quality = Qualities.Unknown.value
-            }
-        )
-    }
-
+                hlsRegex.findAll(html)
+                    .map { it.value }
+                    .distinct()
+                    .mapNotNull { url ->
+                        when {
+                            url.endsWith(".m3u8", true) -> url
+                            url.endsWith(".txt", true) ->
+                                url.replaceAfterLast('.', "m3u8")
+                            else -> null
+                        }
+                    }
+                    .forEach { hls ->
+                        found = true
+                        callback(
+                            newExtractorLink(
+                                source = name,
+                                name = "HLS",
+                                url = hls
+                            ) {
+                                referer = playerUrl
+                                quality = Qualities.Unknown.value
+                            }
+                        )
+                    }
 
             } catch (_: Exception) {
             }
