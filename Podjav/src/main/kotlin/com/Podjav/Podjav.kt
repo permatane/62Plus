@@ -20,9 +20,9 @@ class Podjav : MainAPI() {
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     override val mainPage = mainPageOf(
-        "" to "Latest",
-        "category/japanese" to "Japanese",
-        "category/subtitle" to "Sub Indo"
+        "/movies" to "Latest",
+        "/genre/big-tits" to "Tobrut",
+        "/genre/orgasm" to "Orgame"
     )
 
     private suspend fun getDocument(url: String) =
@@ -153,4 +153,5 @@ class Podjav : MainAPI() {
 
         return found
     }
+
 }
