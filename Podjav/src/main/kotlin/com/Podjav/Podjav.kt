@@ -20,9 +20,9 @@ class Podjav : MainAPI() {
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     override val mainPage = mainPageOf(
-        "/movies" to "Latest",
-        "/genre/big-tits" to "Tobrut",
-        "/genre/orgasm" to "Orgame"
+        "" to "Latest",
+        "category/japanese" to "Japanese",
+        "category/subtitle" to "Sub Indo"
     )
 
     private suspend fun getDocument(url: String) =
@@ -67,16 +67,20 @@ class Podjav : MainAPI() {
        SEARCH RESULT
        ========================= */
     private fun Element.toSearchResult(): SearchResponse? {
-        val titleEl = selectFirst("h2 a") ?: return null
+        val title = selectFirst("h2.entry-title a")
+            ?: selectFirst("h2 a")
+            ?: return null
+
         val img = selectFirst("img")
 
         return newMovieSearchResponse(
-            titleEl.text().trim(),
-            fixUrl(titleEl.attr("href")),
+            title.text().trim(),
+            fixUrl(title.attr("href")),
             TvType.NSFW
         ) {
             posterUrl = fixUrlNull(
-                img?.attr("data-src") ?: img?.attr("src")
+                img?.attr("data-src")
+                    ?.ifBlank { img.attr("src") }
             )
         }
     }
@@ -92,33 +96,42 @@ class Podjav : MainAPI() {
     }
 
     /* =========================
-       LOAD DETAIL
+       LOAD DETAIL (FIXED)
        ========================= */
     override suspend fun load(url: String): LoadResponse {
         val document = getDocument(url)
 
-        val title = document.selectFirst("meta[property=og:title]")
-            ?.attr("content") ?: "Podjav Video"
+        // 🔑 JUDUL ASLI PODJAV
+        val title = document
+            .selectFirst("h1.entry-title")
+            ?.text()
+            ?: document.selectFirst("title")?.text()
+            ?: "Podjav Video"
 
-        val poster = document.selectFirst("meta[property=og:image]")
-            ?.attr("content")
+        // 🔑 POSTER ASLI PODJAV
+        val poster = document
+            .selectFirst("div.post-thumbnail img")
+            ?.attr("src")
+            ?: document.selectFirst("meta[property=og:image]")?.attr("content")
 
-        val desc = document.selectFirst("meta[property=og:description]")
-            ?.attr("content")
+        val desc = document
+            .selectFirst("div.entry-content p")
+            ?.text()
+            ?: document.selectFirst("meta[property=og:description]")?.attr("content")
 
-        // Ambil SEMUA iframe player
+        // Ambil iframe player
         val iframeLinks = document
             .select("iframe[src]")
             .map { fixUrl(it.attr("src")) }
             .distinct()
 
         return newMovieLoadResponse(
-            name = title,
+            name = title.trim(),
             url = url,
             type = TvType.NSFW,
             data = iframeLinks.joinToString("||")
         ) {
-            posterUrl = poster
+            posterUrl = fixUrlNull(poster)
             plot = desc
         }
     }
@@ -138,7 +151,6 @@ class Podjav : MainAPI() {
 
         iframeLinks.forEach { iframe ->
             try {
-                // Gunakan extractor bawaan Cloudstream
                 loadExtractor(
                     iframe,
                     referer = mainUrl,
