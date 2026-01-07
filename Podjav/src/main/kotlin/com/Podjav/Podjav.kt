@@ -1,10 +1,10 @@
-ppackage com.Podjav
+package com.Podjav
 
 import org.jsoup.nodes.Element
 import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 
-class Javsek : MainAPI() {
+class Podjav : MainAPI() {
 
     override var mainUrl = "https://podjav.tv/"
     override var name = "PodJav"
