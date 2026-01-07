@@ -17,8 +17,8 @@ class Javsek : MainAPI() {
     override val mainPage = mainPageOf(
  
         "/movies" to "Latest",
-        "genre/big-tits" to "Tobrut",
-        /genre/orgasm" to "Orgame"
+        "/genre/big-tits" to "Tobrut",
+        "/genre/orgasm" to "Orgame"
     )
 
     override suspend fun getMainPage(
@@ -77,7 +77,7 @@ class Javsek : MainAPI() {
         val title = document.selectFirst("meta[property=og:title]")
             ?.attr("content")
             ?.trim()
-            ?: "Javsek Video"
+            ?: "Podjav Video"
 
         val poster = document.selectFirst("meta[property=og:image]")
             ?.attr("content")
