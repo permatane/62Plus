@@ -158,23 +158,50 @@ class Javsek : MainAPI() {
     /* =========================
        LOAD LINKS (MULTI SERVER)
        ========================= */
-    override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
+   override suspend fun loadLinks(
+    data: String,
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
 
-        data.split("||")
-            .filter { it.startsWith("http") }
-            .distinct()
-            .forEach { link ->
-                loadExtractor(
-                    url = link,
-                    subtitleCallback = subtitleCallback,
-                    callback = callback
+    val playerPages = data.split("||")
+        .filter { it.startsWith("http") }
+        .distinct()
+
+    var found = false
+
+    playerPages.forEach { playerUrl ->
+        try {
+            val document = app.get(
+                playerUrl,
+                headers = mapOf(
+                    "User-Agent" to BROWSER_UA,
+                    "Referer" to mainUrl
                 )
+            ).document
+
+            // Ambil iframe REAL di halaman player
+            document.select("iframe").forEach { iframe ->
+                val src = iframe.attr("src")
+                if (src.startsWith("http")) {
+                    found = true
+                    loadExtractor(
+                        url = src,
+                        subtitleCallback = subtitleCallback,
+                        callback = callback
+                    )
+                }
             }
+
+        } catch (_: Exception) {
+            // skip server mati
+        }
+    }
+
+    return found
+}
+
 
         return true
     }
