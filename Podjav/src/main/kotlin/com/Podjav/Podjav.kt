@@ -124,13 +124,15 @@ override suspend fun loadLinks(
 
         callback(
             newExtractorLink(
-                name,
-                "Direct MP4",
-                videoUrl,
-                data,
-                Qualities.Unknown.value,
-                false
-            )
+                source = name,
+                name = "Direct MP4",
+                url = videoUrl,
+                type = ExtractorLinkType.VIDEO
+            ) {
+                this.referer = data
+                this.quality = Qualities.Unknown.value
+                this.isM3u8 = false
+            }
         )
         found = true
     }
@@ -141,13 +143,15 @@ override suspend fun loadLinks(
 
         callback(
             newExtractorLink(
-                name,
-                "Direct MP4",
-                videoUrl,
-                data,
-                Qualities.Unknown.value,
-                false
-            )
+                source = name,
+                name = "Direct MP4",
+                url = videoUrl,
+                type = ExtractorLinkType.VIDEO
+            ) {
+                this.referer = data
+                this.quality = Qualities.Unknown.value
+                this.isM3u8 = false
+            }
         )
         found = true
     }
@@ -178,6 +182,7 @@ override suspend fun loadLinks(
 }
 
 }
+
 
 
 
