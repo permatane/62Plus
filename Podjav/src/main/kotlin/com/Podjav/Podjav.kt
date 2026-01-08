@@ -118,56 +118,48 @@ override suspend fun loadLinks(
     val document = app.get(data).document
     var found = false
 
-    // =================================================
-    // 1️⃣ DIRECT VIDEO <video src="...mp4">
-    // =================================================
+    // ================= DIRECT <video src> =================
     document.select("video[src]").forEach { video ->
         val videoUrl = fixUrlNull(video.attr("src")) ?: return@forEach
 
         callback(
-            newExtractorLink(
-                source = name,
-                name = "Direct MP4",
-                url = videoUrl,
-                referer = data,
-                quality = Qualities.Unknown.value,
-                isM3u8 = false
+            ExtractorLink(
+                name,
+                "Direct MP4",
+                videoUrl,
+                data,
+                Qualities.Unknown.value,
+                false
             )
         )
         found = true
     }
 
-    // =================================================
-    // 2️⃣ <source src="..."> DI DALAM <video>
-    // =================================================
+    // ================= <source src> =================
     document.select("video source[src]").forEach { source ->
         val videoUrl = fixUrlNull(source.attr("src")) ?: return@forEach
 
         callback(
-            newExtractorLink(
-                source = name,
-                name = "Direct MP4",
-                url = videoUrl,
-                referer = data,
-                quality = Qualities.Unknown.value,
-                isM3u8 = false
+            ExtractorLink(
+                name,
+                "Direct MP4",
+                videoUrl,
+                data,
+                Qualities.Unknown.value,
+                false
             )
         )
         found = true
     }
 
-    // =================================================
-    // 3️⃣ IFRAME EMBED
-    // =================================================
+    // ================= IFRAME =================
     document.select("iframe[src]").forEach { iframe ->
         val src = fixUrlNull(iframe.attr("src")) ?: return@forEach
         loadExtractor(src, subtitleCallback, callback)
         found = true
     }
 
-    // =================================================
-    // 4️⃣ DATA ATTRIBUTES (data-src / data-video / data-embed)
-    // =================================================
+    // ================= DATA ATTR =================
     document.select("[data-src], [data-video], [data-embed]").forEach { el ->
         listOf(
             el.attr("data-src"),
@@ -182,25 +174,9 @@ override suspend fun loadLinks(
         }
     }
 
-    // =================================================
-    // 5️⃣ JAVASCRIPT INLINE (FALLBACK TERAKHIR)
-    // =================================================
-    val scripts = document.select("script").joinToString("\n") { it.data() }
-
-    Regex("""https?:\/\/[^\s'"]+""")
-        .findAll(scripts)
-        .map { it.value }
-        .filter {
-            it.contains("embed") ||
-            it.contains("player") ||
-            it.contains("stream")
-        }
-        .forEach { url ->
-            loadExtractor(url, subtitleCallback, callback)
-            found = true
-        }
-
     return found
 }
+
 }
+
 
