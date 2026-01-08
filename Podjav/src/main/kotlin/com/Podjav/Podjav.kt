@@ -16,7 +16,7 @@ class Podjav : MainAPI() {
     override val vpnStatus = VPNStatus.MightBeNeeded
 
     override val mainPage = mainPageOf(
-        "/movies" to "Latest",
+        "/movies" to "Terbaru",
         "/genre/big-tits" to "Tobrut",
         "/genre/orgasm" to "Orgame"
     )
@@ -36,12 +36,12 @@ class Podjav : MainAPI() {
 
         val document = app.get(pageUrl).document
 
-        val items = document.select("article, div.item")
+        val items = document.select("article")
             .mapNotNull { it.toSearchResult() }
-            .filter { it.posterUrl != null }
+            .filter { it.posterUrl != null && it.name.isNotBlank() }
 
         return newHomePageResponse(
-            list = HomePageList(
+            HomePageList(
                 name = request.name,
                 list = items,
                 isHorizontalImages = false
@@ -53,23 +53,26 @@ class Podjav : MainAPI() {
     // ================= SEARCH ITEM =================
 
     private fun Element.toSearchResult(): SearchResponse? {
+
         val anchor = selectFirst("a[href]") ?: return null
 
-        val title = anchor.attr("title")
-            .ifBlank { anchor.text() }
-            .trim()
+        // JUDUL: ambil dari heading, BUKAN title attr
+        val title =
+            selectFirst("h1, h2, h3")?.text()?.trim()
+                ?: anchor.text().trim()
 
         val href = fixUrl(anchor.attr("href"))
 
-        val img = anchor.selectFirst("img")
+        val img = selectFirst("img")
 
         val poster = fixUrlNull(
-            img?.attr("data-src")
-                ?.ifBlank { null }
-                ?: img?.attr("data-lazy-src")
-                    ?.ifBlank { null }
+            img?.attr("data-src")?.ifBlank { null }
+                ?: img?.attr("data-lazy-src")?.ifBlank { null }
+                ?: img?.attr("srcset")
+                    ?.split(",")
+                    ?.firstOrNull()
+                    ?.substringBefore(" ")
                 ?: img?.attr("src")
-                    ?.ifBlank { null }
         )
 
         return newMovieSearchResponse(title, href, TvType.NSFW) {
@@ -82,20 +85,20 @@ class Podjav : MainAPI() {
     override suspend fun search(query: String): List<SearchResponse> {
         val document = app.get("$mainUrl/?s=$query").document
 
-        return document.select("article, div.item")
+        return document.select("article")
             .mapNotNull { it.toSearchResult() }
-            .filter { it.posterUrl != null }
     }
 
     // ================= LOAD DETAIL =================
 
     override suspend fun load(url: String): LoadResponse {
+
         val document = app.get(url).document
 
-        val title = document.selectFirst("meta[property=og:title]")
-            ?.attr("content")
-            ?.trim()
-            ?: document.selectFirst("h1")?.text()?.trim()
+        val title = document.selectFirst("h1.entry-title, h1")
+            ?.text()?.trim()
+            ?: document.selectFirst("meta[property=og:title]")
+                ?.attr("content")
             ?: "Podjav Video"
 
         val poster = fixUrlNull(
@@ -106,22 +109,6 @@ class Podjav : MainAPI() {
         val description = document.selectFirst("meta[property=og:description]")
             ?.attr("content")
 
-        val recommendations = document.select("article.related, .related article, .related .item")
-            .mapNotNull {
-                val a = it.selectFirst("a[href]") ?: return@mapNotNull null
-                val t = a.attr("title").ifBlank { a.text() }.trim()
-                val h = fixUrl(a.attr("href"))
-                val img = a.selectFirst("img")
-                val p = fixUrlNull(
-                    img?.attr("data-src")
-                        ?: img?.attr("src")
-                )
-
-                newMovieSearchResponse(t, h, TvType.NSFW) {
-                    posterUrl = p
-                }
-            }
-
         return newMovieLoadResponse(
             name = title,
             url = url,
@@ -130,7 +117,6 @@ class Podjav : MainAPI() {
         ) {
             this.posterUrl = poster
             this.plot = description
-            this.recommendations = recommendations
         }
     }
 
@@ -145,19 +131,24 @@ class Podjav : MainAPI() {
 
         val document = app.get(data).document
 
-        val iframeUrls = document.select("iframe[src]")
-            .mapNotNull {
-                fixUrlNull(it.attr("src"))
+        // 1️⃣ iframe langsung
+        document.select("iframe[src]").forEach {
+            fixUrlNull(it.attr("src"))?.let { iframe ->
+                loadExtractor(iframe, subtitleCallback, callback)
             }
-
-        iframeUrls.forEach { iframe ->
-            loadExtractor(
-                url = iframe,
-                subtitleCallback = subtitleCallback,
-                callback = callback
-            )
         }
 
-        return iframeUrls.isNotEmpty()
+        // 2️⃣ cari URL video di script (fallback)
+        val scriptData = document.select("script").joinToString("\n") { it.data() }
+
+        Regex("""https?:\/\/[^\s'"]+""")
+            .findAll(scriptData)
+            .map { it.value }
+            .filter { it.contains("embed") || it.contains("player") }
+            .forEach {
+                loadExtractor(it, subtitleCallback, callback)
+            }
+
+        return true
     }
 }
