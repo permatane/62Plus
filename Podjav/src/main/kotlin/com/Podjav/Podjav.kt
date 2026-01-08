@@ -125,7 +125,7 @@ override suspend fun loadLinks(
         val videoUrl = fixUrlNull(video.attr("src")) ?: return@forEach
 
         callback(
-            ExtractorLink(
+            newExtractorLink(
                 source = name,
                 name = "Direct MP4",
                 url = videoUrl,
@@ -144,7 +144,7 @@ override suspend fun loadLinks(
         val videoUrl = fixUrlNull(source.attr("src")) ?: return@forEach
 
         callback(
-            ExtractorLink(
+            newExtractorLink(
                 source = name,
                 name = "Direct MP4",
                 url = videoUrl,
@@ -202,3 +202,5 @@ override suspend fun loadLinks(
 
     return found
 }
+}
+
