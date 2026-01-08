@@ -5,6 +5,8 @@ import com.lagradost.cloudstream3.*
 import com.lagradost.cloudstream3.utils.*
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.Qualities
+import com.lagradost.cloudstream3.utils.loadExtractor
 
 class Podjav : MainAPI() {
     override var mainUrl              = "https://podjav.tv"
@@ -87,41 +89,29 @@ class Podjav : MainAPI() {
         }
     }
 
-override suspend fun loadLinks(
+    override suspend fun loadLinks(
         data: String,
         isCasting: Boolean,
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = app.get(data).document
-        
-        // 1. Mencari direct link dari tag <video src="...">
-        val directVideoUrl = document.selectFirst("video.jw-video")?.attr("src") 
-            ?: document.selectFirst("video")?.attr("src")
 
-        if (!directVideoUrl.isNullOrEmpty()) {
-            callback(
-                newExtractorLink(
-                    this.name,
-                    this.name,
-                    fixUrl(directVideoUrl),
-                    referer = "$mainUrl/",
-                    quality = Qualities.Unknown.value,
-                    isM3u8 = directVideoUrl.contains(".m3u8")
-                )
+        val document = app.get(data).document
+
+        val iframeUrls = document.select("iframe")
+            .mapNotNull { it.attr("src") }
+            .filter { it.startsWith("http") }
+
+        iframeUrls.forEach { iframe ->
+            loadExtractor(
+                url = iframe,
+                subtitleCallback = subtitleCallback,
+                callback = callback
             )
         }
 
-        // 2. Fallback: Mencari di dalam iframe jika video tidak ditemukan di root document
-        document.select("iframe").forEach { iframe ->
-            val src = iframe.attr("src")
-            if (src.isNotEmpty()) {
-                loadExtractor(fixUrl(src), subtitleCallback, callback)
-            }
-        }
-
-        return true
+        return iframeUrls.isNotEmpty()
     }
 }
 
-
+}
