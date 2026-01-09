@@ -97,7 +97,7 @@ override suspend fun loadLinks(
     val mp4Url = "https://vod.podjav.tv/$javCode/$javCode.mp4"
 
     callback(
-        ExtractorLink(
+        newExtractorLink(
             source = this.name,
             name = "Direct MP4 • 1080p",
             url = mp4Url,
@@ -111,6 +111,25 @@ override suspend fun loadLinks(
             )
         )
     )
-
+// 3. Extra fallback untuk kasus seperti START-440-id.mp4 (Sub Indo version)
+    val indoUrl = "https://vod.podjav.tv/$javCode/$javCode-id.mp4"
+    if (indoUrl != generatedUrl) {
+        callback(
+            ExtractorLink(
+                source = this.name,
+                name = "Direct MP4 • 1080p (Sub Indo Version)",
+                url = indoUrl,
+                referer = data,
+                quality = Qualities.P1080.value,
+                isM3u8 = false,
+                headers = mapOf(
+                    "Origin" to "https://podjav.tv",
+                    "Referer" to data,
+                    "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                )
+            )
+        )
     return true
+}
+
 }
