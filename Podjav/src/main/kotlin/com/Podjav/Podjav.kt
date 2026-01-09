@@ -1,27 +1,11 @@
 package com.Podjav
 
-import com.lagradost.cloudstream3.HomePageList
-import com.lagradost.cloudstream3.HomePageResponse
-import com.lagradost.cloudstream3.LoadResponse
-import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.MainPageRequest
-import com.lagradost.cloudstream3.SearchResponse
-import com.lagradost.cloudstream3.SearchResponseList
-import com.lagradost.cloudstream3.TvType
-import com.lagradost.cloudstream3.VPNStatus
-import com.lagradost.cloudstream3.app
-import com.lagradost.cloudstream3.fixUrlNull
-import com.lagradost.cloudstream3.mainPageOf
-import com.lagradost.cloudstream3.newHomePageResponse
-import com.lagradost.cloudstream3.newMovieLoadResponse
-import com.lagradost.cloudstream3.newMovieSearchResponse
-import com.lagradost.cloudstream3.newSearchResponseList
-import com.lagradost.cloudstream3.utils.ExtractorLink
-import com.lagradost.cloudstream3.utils.Qualities
-import com.lagradost.cloudstream3.utils.getQualityFromName
-import org.jsoup.nodes.Document
-import org.jsoup.nodes.Element
 import android.util.Base64
+import com.lagradost.api.Log
+//import android.util.Log
+import org.jsoup.nodes.Element
+import com.lagradost.cloudstream3.*
+import com.lagradost.cloudstream3.utils.*
 
 class Podjav : MainAPI() {
     override var mainUrl              = "https://podjav.tv"
@@ -92,7 +76,6 @@ class Podjav : MainAPI() {
              .map { Base64.decode(it, Base64.DEFAULT).let(::String) }
              .toList()
          iframeUrls.forEach {
-             Log.d("Phisher",it)
              val iframedoc=app.get(it, referer = it).document
              val olid=iframedoc.toString().substringAfter("var OLID = '").substringBefore("'")
              val newreq=iframedoc.toString().substringAfter("iframe").substringAfter("src=\"").substringBefore("'+OLID")
@@ -130,4 +113,5 @@ class Podjav : MainAPI() {
         return edoceD
     }
 }
+
 
