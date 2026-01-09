@@ -9,21 +9,32 @@ import com.lagradost.cloudstream3.utils.*
 
 class Podjav : MainAPI() {
     override var mainUrl              = "https://podjav.tv"
-    override var name                 = "POD JAV"
+    override var name                 = "PodJAV"
     override val hasMainPage          = true
-    override var lang                 = "id"  // Focused on Indonesian subtitles
+    override var lang                 = "id"
     override val hasDownloadSupport   = true
     override val supportedTypes       = setOf(TvType.NSFW)
-    override val vpnStatus            = VPNStatus.MightBeNeeded
 
     override val mainPage = mainPageOf(
-        "/movies/" to "All Movies",
-        "/genre/abuse/" to "Abuse",
-        "/genre/big-tits/" to "Big Tits",
-        "/genre/bride/" to "Bride",
-        "/genre/creampie/" to "Creampie",
-        "/genre/cuckold/" to "Cuckold",
-        "/genre/step-mother/" to "Step Mother"
+        "/movies/" to "Update Terbaru",
+        "/genre/orgasm/" to "Orgasme"
+        "/genre/big-tits/" to "Tobrut",
+        "/genre/creampie/" to "Krim Pejuh",
+        "/genre/abuse/" to "Pemaksaan",
+        "/genre/model/" to "Model Cantik"
+        "/genre/mature-woman/" to "Wanita Dewasa"
+        "/genre/step-mother/" to "Ibu Angkat"
+        "/genre/nurse/" to "Perawat"
+        "/genre/secretary/" to "Sekretaris"
+        "/genre/female-teacher/" to "Guru"
+        "/genre/swingers/" to "Tukar Pasangan"
+        "/genre/solowork/" to "Solowork"
+        "/genre/cuckold/" to "Istri Menyimpang",
+        
+        
+        
+        
+        
         // Add more genres if needed
     )
 
@@ -120,5 +131,6 @@ override suspend fun loadLinks(
     return true
 }
 }
+
 
 
