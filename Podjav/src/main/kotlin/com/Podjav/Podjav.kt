@@ -88,7 +88,7 @@ class Podjav : MainAPI() {
     val fullMp4Url = fixUrlNull(mp4Url) ?: return false
 
     callback(
-        ExtractorLink(
+        newExtractorLink(
             source = name,
             name = "$name Direct Stream",
             url = fullMp4Url,
@@ -98,4 +98,5 @@ class Podjav : MainAPI() {
         )
     )
     return true
+}
 }
