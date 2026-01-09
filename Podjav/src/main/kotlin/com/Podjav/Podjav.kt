@@ -32,34 +32,46 @@ class Podjav : MainAPI() {
         "/genre/cuckold/" to "Istri Menyimpang"
     )
 
-    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-    // Hanya proses saat page == 1 (kita load semua sekaligus)
-    if (page != 1) return newHomePageResponse(HomePageList(request.name, emptyList()), hasNext = false)
-
-    val allItems = mutableListOf<SearchResponse>()
-    var currentPage = 1
-    var hasNext = true
-
-    while (hasNext) {
-        val pageUrl = if (currentPage == 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$currentPage/"
-
-        val document = app.get(pageUrl, timeout = 30).document   // Standard document (sudah cukup ringkas & efisien)
-
-        val pageItems = document.select("article.item").mapNotNull { it.toSearchResult() }
-        allItems.addAll(pageItems)
-
-        // Cek halaman berikutnya
-        hasNext = document.selectFirst(".pagination .next") != null ||
-                  document.selectFirst("a.next.page-numbers") != null ||
-                  document.select("a[href*='page/${currentPage + 1}']").isNotEmpty()
-
-        // Jika page kosong → stop (safety)
-        if (pageItems.isEmpty()) hasNext = false
-
-        currentPage++
+override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+    // Bangun URL dengan pagination benar (/page/N/)
+    val url = if (page == 1) {
+        "$mainUrl${request.data}"
+    } else {
+        "$mainUrl${request.data}page/$page/"
     }
 
-    return newHomePageResponse(HomePageList(request.name, allItems), hasNext = false)
+    val document = app.get(url, timeout = 20).document  // Timeout lebih kecil agar cepat
+
+    // Selector item: disesuaikan struktur podjav.tv (heading link ke movie)
+    val home = document.select("h3 a, h2 a, a[href*='/movies/']").mapNotNull { element ->
+        val title = element.text().trim()
+        if (title.isEmpty() || !title.contains("Sub Indo", ignoreCase = true)) return@mapNotNull null
+
+        val href = fixUrlNull(element.attr("href")) ?: return@mapNotNull null
+
+        // Poster: coba ambil dari parent jika ada img
+        val poster = element.parents().selectFirst("img")?.attr("src")?.let { fixUrlNull(it) }
+
+        newMovieSearchResponse(title, href, TvType.NSFW) {
+            this.posterUrl = poster
+            // Tags ambil dari div.sgeneros di parent (jika ada)
+            this.tags = element.parents().select("div.sgeneros a[rel=tag]")
+                .map { it.text().trim() }
+                .filter { it.isNotBlank() }
+        }
+    }
+
+    // Deteksi halaman berikutnya untuk infinite scroll
+    val hasNext = document.select(".pagination .next, a.next, a[href*='page/${page + 1}']").isNotEmpty()
+
+    return newHomePageResponse(
+        HomePageList(
+            name = request.name,
+            list = home,
+            isHorizontalImages = false
+        ),
+        hasNext = hasNext
+    )
 }
 
     private fun Element.toSearchResult(): SearchResponse? {
@@ -101,7 +113,7 @@ class Podjav : MainAPI() {
             url = href,
             type = TvType.NSFW
         ) {
-            this.posterUrl = null  // Poster jarang ada di search results
+            this.posterUrl = posterUrl
         }
     }
 
@@ -211,6 +223,7 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
 
 
