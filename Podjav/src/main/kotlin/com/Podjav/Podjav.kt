@@ -106,7 +106,7 @@ override suspend fun loadLinks(
     }
 
     // Jika gagal, fallback ke pola URL
-    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)(-sub-indo-.*?)?/?$").find(data)
+    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)-sub-indo-").find(data)
     val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return false
 
     val fallbackUrl = "https://vod.podjav.tv/$javCode/$javCode.mp4"
@@ -123,20 +123,6 @@ override suspend fun loadLinks(
         }
     )
 
- val indoUrl = "https://vod.podjav.tv/$javCode/$javCode-id.mp4"
-    if (indoUrl != standardUrl) {  // Hindari duplikat
-        callback(
-            newExtractorLink(
-                source = this.name,
-                name = "Direct MP4 • 1080p (Sub Indo)",
-                url = indoUrl,
-                type = ExtractorLinkType.VIDEO
-            ) {
-                this.referer = data
-                this.quality = Qualities.P1080.value
-
-        }
-    )
     return true
 }
 }
