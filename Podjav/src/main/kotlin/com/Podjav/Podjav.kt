@@ -79,26 +79,44 @@ override suspend fun loadLinks(
 ): Boolean {
     val doc = app.get(data).document
 
-    // Ekstrak kode JAV dari URL, misal: mimk-258 atau venu-008
-    val javCode = data.substringAfterLast("/movies/").substringBefore("-sub-indo-").uppercase()
+    // Coba ambil dari <video src=...>
+    val mp4Url = doc.selectFirst("video.jw-video")?.attr("src")
+        ?: doc.selectFirst("video")?.attr("src")
 
-    // Bangun direct URL MP4
-    val mp4Url = "https://vod.podjav.tv/$javCode/$javCode.mp4"
+    if (!mp4Url.isNullOrEmpty()) {
+        val fullUrl = fixUrlNull(mp4Url) ?: mp4Url
+        callback(
+            newExtractorLink(
+                this.name,
+                "Direct MP4 (from HTML)",
+                fullUrl,
+                ExtractorLinkType.VIDEO
+            ) {
+                this.referer = data
+                this.quality = Qualities.P1080.value
+            }
+        )
+        return true
+    }
+
+    // Jika gagal, fallback ke pola URL
+    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)-sub-indo-").find(data)
+    val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return false
+
+    val fallbackUrl = "https://vod.podjav.tv/$javCode/$javCode.mp4"
 
     callback(
-        ExtractorLink(
-            source = name,
-            name = "$name Direct MP4 Stream",
-            url = mp4Url,
-            referer = data,  // Referer penting: halaman video podjav.tv
-            quality = Qualities.P1080.value,  // Kebanyakan full HD
-            isM3u8 = false
-        )
+        newExtractorLink(
+            this.name,
+            "Direct MP4 (fallback pattern)",
+            fallbackUrl,
+            ExtractorLinkType.VIDEO
+        ) {
+            this.referer = data
+            this.quality = Qualities.P1080.value
+        }
     )
 
-    // Subtitle Indo biasanya sudah hardcoded dalam video
     return true
 }
 }
-
-
