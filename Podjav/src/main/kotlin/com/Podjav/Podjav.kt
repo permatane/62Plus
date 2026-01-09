@@ -46,7 +46,6 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
     val home = document.select("h3 a, h2 a, a[href*='/movies/']").mapNotNull { element ->
         val title = element.text().trim()
         if (title.isEmpty() || !title.contains("Sub Indo", ignoreCase = true)) return@mapNotNull null
-
         val href = fixUrlNull(element.attr("href")) ?: return@mapNotNull null
 
         // Poster: coba ambil dari parent jika ada img
@@ -87,7 +86,6 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
     if (page > 1) return null
 
     val searchUrl = "$mainUrl/?s=$query"
-    
     val document = try {
         app.get(searchUrl, timeout = 30).document
     } catch (e: Exception) {
@@ -103,13 +101,15 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
         if (!title.contains(query, ignoreCase = true)) return@mapNotNull null
 
         val href = fixUrlNull(element.attr("href")) ?: return@mapNotNull null
-
+        val poster = document.selectFirst("meta[property=og:image]")
+            ?.attr("content")
+            
         newMovieSearchResponse(
             name = title,
             url = href,
             type = TvType.NSFW
         ) {
-            this.posterUrl = posterUrl
+            this.posterUrl = poster
         }
     }
 
@@ -219,6 +219,7 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
 
 
