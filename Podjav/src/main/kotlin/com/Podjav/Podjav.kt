@@ -73,33 +73,43 @@ class Podjav : MainAPI() {
         }
     }
 
-override suspend fun search(query: String, page: Int): List<SearchResponse> {
+
+    override suspend fun search(query: String, page: Int): SearchResponseList? {
     // Hanya proses page 1 (tidak ada pagination di hasil search podjav.tv)
-    if (page > 1) return emptyList()
+    if (page > 1) return null
 
     val searchUrl = "$mainUrl/?s=$query"
-    val document = app.get(searchUrl, timeout = 30).document
+    
+    val document = try {
+        app.get(searchUrl, timeout = 30).document
+    } catch (e: Exception) {
+        return null  // Jika gagal fetch (blokir dll), return null
+    }
+
+    // Selector: ambil link ke halaman film
     val results = document.select("a[href*='/movies/']").mapNotNull { element ->
         val title = element.text().trim()
         if (title.isEmpty()) return@mapNotNull null
 
-        // Filter agar lebih relevan (harus mengandung query, ignore case)
+        // Filter relevansi (harus mengandung query)
         if (!title.contains(query, ignoreCase = true)) return@mapNotNull null
 
         val href = fixUrlNull(element.attr("href")) ?: return@mapNotNull null
 
-        // Poster: jarang ada di search results, jadi null dulu (bisa di-load di detail)
         newMovieSearchResponse(
             name = title,
             url = href,
             type = TvType.NSFW
         ) {
-            this.posterUrl = null
+            this.posterUrl = null  // Poster jarang ada di search results
         }
     }
 
-    // Jika tidak ada hasil yang match, return empty
-    return results
+    // Jika tidak ada hasil → return null (CloudStream akan tampilkan "No results")
+    if (results.isEmpty()) return null
+
+    // Return dengan hasNext = false (tidak ada pagination di search)
+    return newSearchResponseList(results, hasNext = false)
 }
 
     override suspend fun load(url: String): LoadResponse {
@@ -201,6 +211,7 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
 
 
