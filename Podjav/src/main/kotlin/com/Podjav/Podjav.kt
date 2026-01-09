@@ -91,45 +91,46 @@ override suspend fun loadLinks(
     subtitleCallback: (SubtitleFile) -> Unit,
     callback: (ExtractorLink) -> Unit
 ): Boolean {
-    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)(-sub-indo-.*?)?/?$").find(data)
-        ?: return false
-    val javCode = javCodeMatch.groupValues[1].uppercase()
-    val mp4Url = "https://vod.podjav.tv/$javCode/$javCode.mp4"
+   val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)(-sub-indo-.*?)?/?$").find(data)
+    val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return linksAdded
 
+    // Link standar: KODE.mp4
+    val standardUrl = "https://vod.podjav.tv/$javCode/$javCode.mp4"
     callback(
         newExtractorLink(
             source = this.name,
             name = "Direct MP4 • 1080p",
-            url = mp4Url,
-            referer = data,
-            quality = Qualities.P1080.value,
-            isM3u8 = false,
-            headers = mapOf(
+            url = standardUrl,
+            type = ExtractorLinkType.VIDEO
+        ) {
+            this.referer = data
+            this.quality = Qualities.P1080.value
+            this.headers = mapOf(
                 "Origin" to "https://podjav.tv",
-                "Referer" to data,
-                "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+                "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             )
-        )
+        }
     )
 // 3. Extra fallback untuk kasus seperti START-440-id.mp4 (Sub Indo version)
-    val indoUrl = "https://vod.podjav.tv/$javCode/$javCode-id.mp4"
-    if (indoUrl != generatedUrl) {
+        val indoUrl = "https://vod.podjav.tv/$javCode/$javCode-id.mp4"
+    if (indoUrl != standardUrl) {  // Hindari duplikat
         callback(
-            ExtractorLink(
+            newExtractorLink(
                 source = this.name,
-                name = "Direct MP4 • 1080p (Sub Indo Version)",
+                name = "Direct MP4 • 1080p (Sub Indo)",
                 url = indoUrl,
-                referer = data,
-                quality = Qualities.P1080.value,
-                isM3u8 = false,
-                headers = mapOf(
+                type = ExtractorLinkType.VIDEO
+            ) {
+                this.referer = data
+                this.quality = Qualities.P1080.value
+                this.headers = mapOf(
                     "Origin" to "https://podjav.tv",
-                    "Referer" to data,
                     "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                 )
-            )
+            }
         )
     return true
 }
 
 }
+
