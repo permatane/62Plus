@@ -20,8 +20,8 @@ class Earnvids : VidhideExtractor() {
     override var mainUrl = "https://earnvids.com"
 }
 
-class Earnvids : VidhideExtractor() {
-    override var name = "Earnvid2"
+class Earnvida : VidhideExtractor() {
+    override var name = "Earnvida"
     override var mainUrl = "https://minochinos.com"
 }
 
@@ -68,3 +68,4 @@ class Lulustream : StreamWishExtractor() {
     return linksAdded
 
 }
+
