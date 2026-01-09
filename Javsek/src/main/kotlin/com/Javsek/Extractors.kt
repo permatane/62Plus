@@ -35,7 +35,11 @@ open class Stbturbo : ExtractorApi() {
     }
 
 class luluvdoo : VidhideExtractor() {
-    override var mainUrl = "https://luluvdoo.com"
+    override var mainUrl = "https://luluvid.com"
+}
+
+class Earnvid : VidhideExtractor() {
+    override var mainUrl = "https://minochinos.com"
 }
 
 class Turbovid : Stbturbo() {
