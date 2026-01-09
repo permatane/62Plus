@@ -91,51 +91,26 @@ override suspend fun loadLinks(
     subtitleCallback: (SubtitleFile) -> Unit,
     callback: (ExtractorLink) -> Unit
 ): Boolean {
-    val doc = app.get(data).document
-
-    // Coba ambil dari <video src=...>
-    val mp4Url = doc.selectFirst("video.jw-video")?.attr("src")
-        ?: doc.selectFirst("video")?.attr("src")
-
-    if (!mp4Url.isNullOrEmpty()) {
-        val fullUrl = fixUrlNull(mp4Url) ?: mp4Url
-        callback(
-            newExtractorLink(
-                this.name,
-                "Direct MP4 (from HTML)",
-                fullUrl,
-                ExtractorLinkType.VIDEO
-            ) {
-                this.referer = data
-                this.quality = Qualities.P1080.value
-            }
-        )
-        return true
-    }
-
-    // Jika gagal, fallback ke pola URL
-    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)-sub-indo-").find(data)
-    val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return false
-
-    val fallbackUrl = "https://vod.podjav.tv/$javCode/$javCode.mp4"
+    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)(-sub-indo-.*?)?/?$").find(data)
+        ?: return false
+    val javCode = javCodeMatch.groupValues[1].uppercase()
+    val mp4Url = "https://vod.podjav.tv/$javCode/$javCode.mp4"
 
     callback(
-        newExtractorLink(
-            this.name,
-            "Direct MP4 (fallback pattern)",
-            fallbackUrl,
-            ExtractorLinkType.VIDEO
-        ) {
-            this.referer = data
-            this.quality = Qualities.P1080.value
-        }
+        ExtractorLink(
+            source = this.name,
+            name = "Direct MP4 • 1080p",
+            url = mp4Url,
+            referer = data,
+            quality = Qualities.P1080.value,
+            isM3u8 = false,
+            headers = mapOf(
+                "Origin" to "https://podjav.tv",
+                "Referer" to data,
+                "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+            )
+        )
     )
 
     return true
 }
-}
-
-
-
-
-
