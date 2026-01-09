@@ -67,7 +67,7 @@ class Podjav : MainAPI() {
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
             this.plot = description
-            this.tags = selectFirst("div.sgeneros")?.select("a[rel=tag]") ?.map { it.text().trim() }
+            this.tags = document.select("a[rel=tag]").eachText()
         }
     }
 
@@ -120,4 +120,5 @@ override suspend fun loadLinks(
     return true
 }
 }
+
 
