@@ -114,7 +114,7 @@ override suspend fun loadLinks(
     }
 
     // 2. Fallback: Generate link berdasarkan kode JAV dari URL
-    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)(-sub-indo-.*?)?/?$").find(data)
+    val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)-sub-indo-").find(data)
     val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return linksAdded
 
     // Link standar: KODE.mp4
@@ -159,3 +159,4 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
