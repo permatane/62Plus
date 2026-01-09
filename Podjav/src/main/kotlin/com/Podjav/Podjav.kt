@@ -21,6 +21,7 @@ import com.lagradost.cloudstream3.utils.Qualities
 import com.lagradost.cloudstream3.utils.getQualityFromName
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import android.util.Base64
 
 class Podjav : MainAPI() {
     override var mainUrl              = "https://podjav.tv"
@@ -129,3 +130,4 @@ class Podjav : MainAPI() {
         return edoceD
     }
 }
+
