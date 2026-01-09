@@ -71,7 +71,7 @@ class Podjav : MainAPI() {
         }
     }
 
-  override suspend fun loadLinks(
+override suspend fun loadLinks(
     data: String,
     isCasting: Boolean,
     subtitleCallback: (SubtitleFile) -> Unit,
@@ -79,22 +79,26 @@ class Podjav : MainAPI() {
 ): Boolean {
     val doc = app.get(data).document
 
-    // Mencari direct MP4 src dari tag <video>
-    val mp4Url = doc.selectFirst("video.jw-video")?.attr("src")
-        ?: doc.selectFirst("video")?.attr("src")
-        ?: return false
+    // Ekstrak kode JAV dari URL, misal: mimk-258 atau venu-008
+    val javCode = data.substringAfterLast("/movies/").substringBefore("-sub-indo-").uppercase()
 
-    // Jika src relatif, jadikan absolute (meskipun dari contoh sudah absolute)
-    val fullMp4Url = fixUrlNull(mp4Url) ?: return false
+    // Bangun direct URL MP4
+    val mp4Url = "https://vod.podjav.tv/$javCode/$javCode.mp4"
 
     callback(
-        newExtractorLink(
+        ExtractorLink(
             source = name,
-            name = "$name Direct Stream",
-            url = fullMp4Url
+            name = "$name Direct MP4 Stream",
+            url = mp4Url,
+            referer = data,  // Referer penting: halaman video podjav.tv
+            quality = Qualities.P1080.value,  // Kebanyakan full HD
+            isM3u8 = false
         )
     )
+
+    // Subtitle Indo biasanya sudah hardcoded dalam video
     return true
 }
 }
+
 
