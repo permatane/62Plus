@@ -1,4 +1,4 @@
-ackage com.Jasek
+package com.Javsek
 
 import com.lagradost.cloudstream3.plugins.CloudstreamPlugin
 import com.lagradost.cloudstream3.plugins.Plugin
