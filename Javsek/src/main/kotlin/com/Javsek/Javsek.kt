@@ -140,59 +140,57 @@ class Javsek : MainAPI() {
        LOAD LINKS (HLS ONLY)
        ========================= */
     override suspend fun loadLinks(
-        data: String,
-        isCasting: Boolean,
-        subtitleCallback: (SubtitleFile) -> Unit,
-        callback: (ExtractorLink) -> Unit
-    ): Boolean {
+    data: String,                        // URL halaman film, contoh: https://javsek.net/sub-indo-ntrh-026-julia-toketmu-nyaris-sempurna/
+    isCasting: Boolean,
+    subtitleCallback: (SubtitleFile) -> Unit,
+    callback: (ExtractorLink) -> Unit
+): Boolean {
+    var linksAdded = false
 
-        val playerPages = data.split("||").distinct()
-        var found = false
-
-        // Domain HLS yang sudah terbukti dari Javsek
-        val hlsRegex = Regex(
-            """https?:\/\/(sdqm\.lavonadesign\.sbs|nomtre\.upns\.pro|iplayerhls\.com)[^\s"'<>]+"""
-        )
-
-        playerPages.forEach { playerUrl ->
-            try {
-                val html = app.get(
-                    playerUrl,
-                    headers = mapOf(
-                        "User-Agent" to BROWSER_UA,
-                        "Referer" to mainUrl
-                    )
-                ).text
-
-                hlsRegex.findAll(html)
-                    .map { it.value }
-                    .distinct()
-                    .mapNotNull { url ->
-                        when {
-                            url.endsWith(".m3u8", true) -> url
-                            url.endsWith(".txt", true) ->
-                                url.replaceAfterLast('.', "m3u8")
-                            else -> null
-                        }
-                    }
-                    .forEach { hls ->
-                        found = true
-                        callback(
-                            newExtractorLink(
-                                source = name,
-                                name = "HLS",
-                                url = hls
-                            ) {
-                                referer = playerUrl
-                                quality = Qualities.Unknown.value
-                            }
-                        )
-                    }
-
-            } catch (_: Exception) {
-            }
-        }
-
-        return found
+    // 1. Fetch halaman film untuk parsing
+    val doc = try {
+        app.get(data, timeout = 30).document
+    } catch (e: Exception) {
+        null
     }
+
+    // 2. Coba ambil direct <video src> jika ada (jarang, tapi safety)
+    doc?.selectFirst("video")?.attr("src")?.let { src ->
+        val fullSrc = fixUrlNull(src) ?: return@let
+        if (fullSrc.startsWith("http")) {
+            callback(
+                newExtractorLink(
+                    source = this.name,
+                    name = "Direct MP4 • 1080p",
+                    url = fullSrc,
+                    type = ExtractorLinkType.VIDEO
+                ) {
+                    this.referer = data
+                    this.quality = Qualities.P1080.value
+                }
+            )
+            linksAdded = true
+        }
+    }
+
+    // 3. Coba ambil semua iframe embed (banyak JAV site pakai iframe per server)
+    doc?.select("iframe[src*='http']")?.forEach { iframe ->
+        val iframeSrc = fixUrlNull(iframe.attr("src")) ?: return@forEach
+        loadExtractor(iframeSrc, data, subtitleCallback, callback)
+        linksAdded = true
+    }
+
+    // 4. Fallback utama: Multi server dengan parameter ?player=1 sampai ?player=7
+    // Pola ini sesuai link yang kamu berikan — setiap ?player=N load player/server berbeda
+    val baseUrl = data.substringBefore("?")  // Hapus parameter jika ada (misal ?player= lama)
+    for (i in 1..7) {
+        val playerUrl = "$baseUrl?player=$i"
+        loadExtractor(playerUrl, data, subtitleCallback, callback)
+        linksAdded = true
+    }
+
+    // Subtitle Indo biasanya hardcoded di video → tidak perlu external subtitle
+
+    return linksAdded || doc != null  // Return true jika ada link ditambahkan atau halaman berhasil di-fetch
+ }
 }
