@@ -9,13 +9,10 @@ import com.lagradost.cloudstream3.extractors.StreamTape
 class JavsekPlugin: Plugin() {
     override fun load(context: Context) {
         registerMainAPI(Javsek())
-        registerExtractorAPI(StreamTape())
-        registerExtractorAPI(Stbturbo())
-        registerExtractorAPI(Turbovid())
-        registerExtractorAPI(MyCloudZ())
-        registerExtractorAPI(Cloudwish())
-        registerExtractorAPI(luluvdoo())
         registerExtractorAPI(Earnvid())
+        registerExtractorAPI(Earnvids())
+        registerExtractorAPI(Luluvideo())
+        registerExtractorAPI(Lulustream())
         
     }
 }
