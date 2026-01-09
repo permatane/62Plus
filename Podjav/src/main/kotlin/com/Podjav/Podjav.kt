@@ -30,7 +30,7 @@ class Podjav : MainAPI() {
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page == 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/"
         val document = app.get(url).document
-        val responseList = document.select("article.item").mapNotNull { it.toSearchResult() }
+        val responseList = document.select("article, div.item").mapNotNull { it.toSearchResult() }
         val hasNext = document.select(".pagination .next").isNotEmpty()
         return newHomePageResponse(HomePageList(request.name, responseList, isHorizontalImages = false), hasNext)
     }
@@ -49,7 +49,7 @@ class Podjav : MainAPI() {
     override suspend fun search(query: String, page: Int): SearchResponseList? {
         val url = if (page == 1) "$mainUrl/?s=$query" else "$mainUrl/page/$page/?s=$query"
         val document = app.get(url).document
-        val results = document.select("article.item").mapNotNull { it.toSearchResult() }
+        val results = document.select("article, div.item").mapNotNull { it.toSearchResult() }
         val hasNext = document.select(".pagination .next").isNotEmpty()
         return if (results.isEmpty()) null else newSearchResponseList(results, hasNext)
     }
@@ -113,5 +113,6 @@ class Podjav : MainAPI() {
         return edoceD
     }
 }
+
 
 
