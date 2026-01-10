@@ -95,8 +95,7 @@ class Javstory : MainAPI() {
                 callback(
                     newExtractorLink(
                         name = "$name Direct StreamTape",
-                        url = src,
-                        type = ExtractorLinkType.VIDEO
+                        url = src
                     )
                 )
             }
