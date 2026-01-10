@@ -5,46 +5,42 @@ import com.lagradost.cloudstream3.utils.ExtractorLink
 import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 
-class Javstory : MainAPI() {
+class Javstory : MainAPI() { 
     override var mainUrl = "https://javstory1.com"
     override var name = "JavStory"
     override val supportedTypes = setOf(TvType.NSFW)
     override var lang = "id"
     override val hasMainPage = true
-    
-    private val BROWSER_UA =
+
+        private val BROWSER_UA =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
         "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
     override val mainPage = mainPageOf(
         "/" to "Terbaru",
         "/category/indosub/" to "Sub Indonesia",
-        "/category/engsub/" to "Sub English"
+        "/category/engsub/" to "Sub English",
     )
 
-override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        // Tambahkan header referer di setiap request halaman
-        val document = app.get(
-            if (page <= 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/",
-            referer = mainUrl
-        ).document
-        
-        val items = document.select("article, .post-item").mapNotNull { it.toSearchResult() }
+    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+        val url = if (page <= 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/"
+        val response = app.get(url, timeout = 15).document
+        val items = response.select("article, .post-item, .bs").mapNotNull {
+            it.toSearchResult()
+        }
         return newHomePageResponse(request.name, items, hasNext = true)
     }
-}
 
-   private fun Element.toSearchResult(): SearchResponse? {
+    private fun Element.toSearchResult(): SearchResponse? {
         val linkElement = this.selectFirst(".entry-title a, a.tip") ?: return null
         val title = linkElement.text().trim()
-        val href = fixUrl(linkElement.attr("href"))
+        val href = fixUrl(linkElement.attr("href")) // fixUrl butuh konteks MainAPI
         
-        // Perbaikan: Mencari di berbagai atribut lazy-load yang umum
         val imgElement = this.selectFirst("img")
         val posterUrl = fixUrlNull(
-            imgElement?.attr("data-src") ?:       // Cek data-src
-            imgElement?.attr("data-lazy-src") ?:  // Cek data-lazy-src
-            imgElement?.attr("src")               // Cek src biasa sebagai cadangan
+            imgElement?.attr("data-src") ?: 
+            imgElement?.attr("data-lazy-src") ?: 
+            imgElement?.attr("src")
         )
 
         return newMovieSearchResponse(title, href, TvType.NSFW) {
@@ -59,13 +55,13 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
         }
     }
 
-    override suspend fun load(url: String): LoadResponse {
+    override suspend fun load(url: String): LoadResponse? {
         val document = app.get(url).document
-
-        val title = document.selectFirst("meta[property=og:title]")?.attr("content")?.trim().toString()
-        val poster = fixUrlNull(document.selectFirst("[property='og:image']")?.attr("content"))
-        val description = document.selectFirst("meta[property=og:description]")?.attr("content")?.trim()
-    
+        val title = document.selectFirst("h1.entry-title, .entry-title")?.text() ?: return null
+        
+        val imgElement = document.selectFirst(".content-thumb img, .thumb img, .entry-content img")
+        val poster = fixUrlNull(imgElement?.attr("data-src") ?: imgElement?.attr("src"))
+        val description = document.selectFirst(".entry-content p, .description")?.text()
 
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
@@ -81,13 +77,13 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
     ): Boolean {
         val document = app.get(data).document
 
-        // 1. Selector Iframe Player
+        // 1. Iframe Player
         document.select("iframe.player-iframe, .player-iframe iframe").forEach { iframe ->
             val src = fixUrl(iframe.attr("src"))
             loadExtractor(src, data, subtitleCallback, callback)
         }
 
-        // 2. Logic server-button onclick (loadStream)
+        // 2. Button loadStream
         document.select("button.server-button").forEach { button ->
             val onClick = button.attr("onclick")
             if (onClick.contains("loadStream")) {
@@ -101,7 +97,7 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
             }
         }
 
-        // 3. Logic rndmzr (Reverse string ID)
+        // 3. Logic rndmzr (Reverse)
         document.select("script").forEach { script ->
             val scriptData = script.data()
             if (scriptData.contains("rndmzr")) {
@@ -111,7 +107,7 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
                     when {
                         scriptData.contains("streamtape") -> 
                             loadExtractor("https://streamtape.com/e/$realId", data, subtitleCallback, callback)
-                        scriptData.contains("sbembed") || scriptData.contains("sbvideo") || scriptData.contains("sbplay") -> 
+                        scriptData.contains("sbembed") || scriptData.contains("sbvideo") -> 
                             loadExtractor("https://sbembed2.com/e/$realId.html", data, subtitleCallback, callback)
                     }
                 }
@@ -119,4 +115,4 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
         }
         return true
     }
-}
+} 
