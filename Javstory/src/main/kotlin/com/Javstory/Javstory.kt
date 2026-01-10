@@ -96,9 +96,8 @@ class JavStory : MainAPI() {
                     newExtractorLink(
                         name = "$name Direct StreamTape",
                         url = src,
-                        referer = mainUrl,
-                        quality = Qualities.P1080.value,
-                        isM3u8 = src.contains("m3u8")
+                        url = videoUrl,
+                        type = ExtractorLinkType.VIDEO
                     )
                 )
             }
