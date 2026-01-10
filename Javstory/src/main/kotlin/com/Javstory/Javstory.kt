@@ -22,13 +22,38 @@ class Javstory : MainAPI() {
         "/category/engsub/" to "Sub English",
     )
 
-    override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page <= 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/"
         val response = app.get(url, timeout = 15).document
-        val items = response.select("article, .post-item, .bs").mapNotNull {
+        val homePageLists = mutableListOf<HomePageList>()
+        if (request.data == "/" && page <= 1) {
+            val featuredItems = response.select(".featured-item, .slider-item, .top-recommendation").mapNotNull {
+                it.toSearchResult()
+            }
+            if (featuredItems.isNotEmpty()) {
+                homePageLists.add(
+                    HomePageList(
+                        "Rekomendasi Utama", // Judul baris di aplikasi
+                        featuredItems,
+                        isHorizontalImages = true // Biasanya slider berbentuk landscape/horizontal
+                    )
+                )
+            }
+        }
+
+            val mainItems = response.select("article, .post-item, .bs").mapNotNull {
             it.toSearchResult()
         }
-        return newHomePageResponse(request.name, items, hasNext = true)
+        
+        homePageLists.add(
+            HomePageList(
+                request.name, // Nama kategori (misal: Terbaru, Jav Sub Indo)
+                mainItems,
+                isHorizontalImages = false
+            )
+        )
+
+        return HomePageResponse(homePageLists, hasNext = true)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
