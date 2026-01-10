@@ -147,7 +147,6 @@ override suspend fun loadLinks(
     val javCode = Regex("/movies/([A-Z0-9-]+?)(?:-sub-indo-|/|$)").find(data)
         ?.groupValues?.get(1)?.uppercase() ?: return false
 
-    // Langkah 2: Hanya 4-5 variasi paling umum (sudah cover hampir semua kasusmu)
     val fileNames = listOf(
         "$javCode.mp4",           // 1. Standar paling sering
         "$javCode-id.mp4",        // 2. Versi subtitle Indo
@@ -156,7 +155,6 @@ override suspend fun loadLinks(
         "${javCode.dropLast(3)}${javCode.takeLast(3).toIntOrNull()?.plus(1) ?: 0}.mp4"  // 5. Offset +1 (contoh 062 → 063)
     )
 
-    // Langkah 3: Kirim semua variasi sebagai link (sangat sederhana)
     var added = false
     fileNames.distinct().forEach { file ->
         val url = "https://vod.podjav.tv/$javCode/$file"
@@ -179,3 +177,4 @@ override suspend fun loadLinks(
 
     return added
 }
+
