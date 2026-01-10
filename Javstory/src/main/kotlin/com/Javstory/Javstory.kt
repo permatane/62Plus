@@ -1,65 +1,56 @@
-package com.Javstory
+package com.JavStory
 
-import android.util.Log
-import com.lagradost.cloudstream3.MainAPI
-import com.lagradost.cloudstream3.TvType
 import com.lagradost.cloudstream3.*
-import com.lagradost.cloudstream3.utils.*
-import com.lagradost.cloudstream3.network.WebViewResolver
+import com.lagradost.cloudstream3.utils.ExtractorLink
+import com.lagradost.cloudstream3.utils.loadExtractor
 import org.jsoup.nodes.Element
 
 class Javstory : MainAPI() {
-    override var name = "JavStory"
     override var mainUrl = "https://javstory1.com"
+    override var name = "JavStory"
     override val supportedTypes = setOf(TvType.NSFW)
-    override val hasDownloadSupport = true
+    override var lang = "id"
     override val hasMainPage = true
-    override val hasQuickSearch = false
 
     override val mainPage = mainPageOf(
-        "category/indosub/" to "Sub Indonesia",
-        "category/engsub/" to "Sub English",
+        "/category/indosub/" to "Sub Indonesia",
+        "/category/engsub/" to "Sub English"
     )
 
     override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
-        val url = if (request.data.isEmpty()) {
-            "$mainUrl/page/$page/"
-        } else {
-            "$mainUrl/${request.data}page/$page/"
-        }
+        val url = if (page <= 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/"
         val document = app.get(url).document
-        val items = document.select("article, .post-item, .post").mapNotNull { it.toSearchResult() }
-        val hasNext = items.isNotEmpty() && document.select("a.next.page-numbers").isNotEmpty()
-        return newHomePageResponse(HomePageList(request.name, items, isHorizontalImages = true), hasNext)
+        val home = document.select("article").mapNotNull {
+            it.toSearchResult()
+        }
+        return newHomePageResponse(request.name, home)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
-        val titleEl = this.selectFirst("h3 a, h2 a, .post-title a, a.title, a[href]") ?: return null
-        val title = titleEl.text().trim()
-        val href = fixUrl(titleEl.attr("href"))
-        val poster = this.selectFirst("img")?.attr("data-src") ?: this.selectFirst("img")?.attr("src") ?: return null
+        val title = this.selectFirst(".entry-title a")?.text() ?: return null
+        val href = fixUrl(this.selectFirst(".entry-title a")?.attr("href") ?: return null)
+        val posterUrl = fixUrlNull(this.selectFirst("img")?.attr("src"))
+
         return newMovieSearchResponse(title, href, TvType.NSFW) {
-            this.posterUrl = poster
-            posterHeaders = mapOf("Referer" to mainUrl)
+            this.posterUrl = posterUrl
         }
     }
 
-    override suspend fun search(query: String, page: Int): SearchResponseList {
-        val url = "$mainUrl/page/$page/?s=$query"
-        val document = app.get(url).document
-        val items = document.select("article, .post-item, .post").mapNotNull { it.toSearchResult() }
-        val hasNext = items.isNotEmpty() && document.select("a.next.page-numbers").isNotEmpty()
-        return newSearchResponseList(items, hasNext)
+    override suspend fun search(query: String): List<SearchResponse> {
+        val document = app.get("$mainUrl/?s=$query").document
+        return document.select("article").mapNotNull {
+            it.toSearchResult()
+        }
     }
 
-    override suspend fun load(url: String): LoadResponse {
+    override suspend fun load(url: String): LoadResponse? {
         val document = app.get(url).document
-        val title = document.selectFirst("meta[property=og:title]")?.attr("content")?.trim() ?: "No Title"
-        val description = document.selectFirst("meta[property=og:description]")?.attr("content")?.trim()
-        val poster = document.selectFirst("meta[property=og:image]")?.attr("content")
+        val title = document.selectFirst(".entry-title")?.text() ?: return null
+        val poster = fixUrlNull(document.selectFirst(".content-thumb img")?.attr("src"))
+        val description = document.selectFirst(".entry-content p")?.text()
+
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
-            posterHeaders = mapOf("Referer" to mainUrl)
             this.plot = description
         }
     }
@@ -70,84 +61,51 @@ class Javstory : MainAPI() {
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val res = app.get(data)
-        val doc = res.document
-        val text = res.text
+        val document = app.get(data).document
 
-        val embedUrls = mutableSetOf<String>()
+        // 1. Ekstraksi dari Iframe Langsung
+        document.select("iframe.player-iframe").forEach { iframe ->
+            val src = fixUrl(iframe.attr("src"))
+            loadExtractor(src, data, subtitleCallback, callback)
+        }
 
-        // 1. Direct iframes
-        doc.select("iframe[src*=streamtape], iframe[src*=sbembed], iframe[src*=streamsb], iframe.player-iframe").forEach {
-            var src = fixUrl(it.attr("src"))
-            if (src.contains("/e/") || src.contains(".html")) {
-                src = src.trimEnd('/').removeSuffix(".html")
-                embedUrls.add(src)
-                if (src.contains("sbembed") || src.contains("streamsb")) {
-                    embedUrls.add("$src.html")
+        // 2. Ekstraksi dari Button onclick (loadStream)
+        document.select("button.server-button").forEach { button ->
+            val onClick = button.attr("onclick")
+            if (onClick.contains("loadStream")) {
+                val matches = """'([^']*)'""".toRegex().findAll(onClick).map { it.groupValues[1] }.toList()
+                if (matches.size >= 2) {
+                    val baseUrl = matches[0]
+                    val id = matches[1]
+                    val fullUrl = if (baseUrl.endsWith("/")) "$baseUrl$id" else "$baseUrl/$id"
+                    loadExtractor(fullUrl, data, subtitleCallback, callback)
                 }
             }
         }
 
-        // 2. Direct <video> tag (StreamTape get_video) - menggunakan newExtractorLink untuk menghindari deprecation
-        doc.select("video source, video#mainvideo").forEach {
-            val src = it.attr("src")
-            if (src.isNotEmpty() && src.contains("get_video")) {
-                callback(
-                    newExtractorLink(
-                        name = "$name Direct StreamTape",
-                        
-                    )
-                )
+        // 3. Ekstraksi dari Script Obfuscated (rndmzr = reverse)
+        document.select("script").forEach { script ->
+            val scriptData = script.data()
+            if (scriptData.contains("rndmzr")) {
+                // Regex untuk mencari ID di dalam tanda kutip sebelum .rndmzr()
+                val regex = """"(.*?)".rndmzr\(\)""".toRegex()
+                regex.findAll(scriptData).forEach { match ->
+                    val obfuscatedId = match.groupValues[1]
+                    val realId = obfuscatedId.reversed() // Logika rndmzr di JS hanyalah reverse
+
+                    // Cek jenis server berdasarkan konten script
+                    when {
+                        scriptData.contains("streamtape") -> {
+                            loadExtractor("https://streamtape.com/e/$realId", data, subtitleCallback, callback)
+                        }
+                        scriptData.contains("sbembed") || scriptData.contains("sbvideo") -> {
+                            loadExtractor("https://sbembed2.com/e/$realId.html", data, subtitleCallback, callback)
+                        }
+                    }
+                }
             }
         }
 
-        // 3. loadStream('base/', 'code')
-        val loadStreamRegex = Regex("""loadStream\s*\(\s*['"](https?://[^'"]*?/e/?)['"],\s*['"]([A-Za-z0-9]+)['"]\s*\)""")
-        loadStreamRegex.findAll(text).forEach { match ->
-            val base = match.groupValues[1].removeSuffix("/")
-            val code = match.groupValues[2]
-            val url = "$base/$code".trimEnd('/')
-            embedUrls.add(url)
-        }
-
-        // 4. Obfuscated .rndmzr() → reverse string
-        val rndmzrRegex = Regex("""["']([A-Za-z0-9]{10,20})["']\s*\.rndmzr\(\)""")
-        rndmzrRegex.findAll(text).forEach { match ->
-            val reversedCode = match.groupValues[1]
-            val code = reversedCode.reversed()
-            val bases = listOf(
-                "https://streamtape.com/e/",
-                "https://streamtape.to/e/",
-                "https://streamtape.xyz/e/",
-                "https://sbembed2.com/e/",
-                "https://sbembed.com/e/",
-                "https://streamsb.com/e/"
-            )
-            bases.forEach { base ->
-                var url = base + code
-                if (base.contains("sbembed") || base.contains("streamsb")) url += ".html"
-                embedUrls.add(url.removeSuffix(".html"))
-                embedUrls.add(url)
-            }
-        }
-
-        // 5. General /e/code patterns
-        val generalRegex = Regex("""(https?://[^'"\s>]{10,200}/e/[A-Za-z0-9]{6,20}[^'"\s>]*?)""")
-        generalRegex.findAll(text).forEach { match ->
-            var url = match.value.trimEnd('/').removeSuffix(".html")
-            embedUrls.add(url)
-            if (url.contains("sbembed") || url.contains("streamsb")) {
-                embedUrls.add("$url.html")
-            }
-        }
-
-        // Load semua embed URL
-        embedUrls.forEach { url ->
-            Log.d("JavStory1", "Loading extractor: $url")
-            loadExtractor(url, mainUrl, subtitleCallback, callback)
-        }
-
-        return embedUrls.isNotEmpty() || doc.select("video source, video#mainvideo").isNotEmpty()
+        return true
     }
 }
-
