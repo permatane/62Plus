@@ -22,54 +22,47 @@ class Javstory : MainAPI() {
         "/category/engsub/" to "Sub English",
     )
 
-override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
+   override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageResponse {
         val url = if (page <= 1) "$mainUrl${request.data}" else "$mainUrl${request.data}page/$page/"
         val response = app.get(url, timeout = 15).document
-        
         val homePageLists = mutableListOf<HomePageList>()
 
-        // 1. Logika untuk Slider/Rekomendasi Utama (Paling Atas)
+        // --- BARIS 1: REKOMENDASI UTAMA (SLIDER) ---
         if (request.data == "/" && page <= 1) {
-            // Kita coba ambil dari selector slider yang biasanya ada di web JavStory
-            val featuredItems = response.select(".featured-item, .slider-item, .hero-item").mapNotNull {
+            // Selector ini menargetkan slider di bagian atas (biasanya class 'featured' atau 'slider')
+            val featured = response.select(".featured-item, .slider-item, .hero-content").mapNotNull {
                 it.toSearchResult()
             }
-            
-            if (featuredItems.isNotEmpty()) {
+            if (featured.isNotEmpty()) {
                 homePageLists.add(
-                    HomePageList(
-                        "Rekomendasi Utama", 
-                        featuredItems,
-                        isHorizontalImages = true // Layout horizontal/landscape
-                    )
+                    HomePageList("Rekomendasi Utama", featured, isHorizontalImages = true)
                 )
             }
         }
 
-        // 2. Logika untuk daftar film standar
-        val mainItems = response.select("article, .post-item, .bs").mapNotNull {
+        // --- BARIS 2: DAFTAR FILM STANDAR ---
+        val items = response.select("article, .post-item, .bs").mapNotNull {
             it.toSearchResult()
         }
         
         homePageLists.add(
-            HomePageList(
-                request.name, 
-                mainItems,
-            )
+            HomePageList(request.name, items, isHorizontalImages = false)
         )
+
         return newHomePageResponse(homePageLists, hasNext = true)
     }
 
     private fun Element.toSearchResult(): SearchResponse? {
-        val linkElement = this.selectFirst(".entry-title a, a.tip") ?: return null
+        val linkElement = this.selectFirst(".entry-title a, a.tip, .title a") ?: return null
         val title = linkElement.text().trim()
-        val href = fixUrl(linkElement.attr("href")) // fixUrl butuh konteks MainAPI
+        val href = fixUrl(linkElement.attr("href"))
         
-        val imgElement = this.selectFirst("img")
+        // Menangani Lazy Load Poster
+        val img = this.selectFirst("img")
         val posterUrl = fixUrlNull(
-            imgElement?.attr("data-src") ?: 
-            imgElement?.attr("data-lazy-src") ?: 
-            imgElement?.attr("src")
+            img?.attr("data-src") ?: 
+            img?.attr("data-lazy-src") ?: 
+            img?.attr("src")
         )
 
         return newMovieSearchResponse(title, href, TvType.NSFW) {
@@ -85,16 +78,21 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
     }
 
     override suspend fun load(url: String): LoadResponse? {
-        val document = app.get(url).document
-        val title = document.selectFirst("h1.entry-title, .entry-title")?.text() ?: return null
+        val response = app.get(url, referer = mainUrl).document
         
-        val imgElement = document.selectFirst(".content-thumb img, .thumb img, .entry-content img")
-        val poster = fixUrlNull(imgElement?.attr("data-src") ?: imgElement?.attr("src"))
-        val description = document.selectFirst(".entry-content p, .description")?.text()
+        val title = response.selectFirst("h1.entry-title, .entry-title")?.text()?.trim() 
+            ?: throw ErrorLoadingException("Gagal memuat judul")
+
+        val img = response.selectFirst(".content-thumb img, .thumb img, .entry-content img")
+        val poster = fixUrlNull(img?.attr("data-src") ?: img?.attr("src"))
+        
+        val description = response.selectFirst(".entry-content p, .description")?.text()?.trim()
+        val tags = response.select(".genredown a, .entry-categories a").map { it.text() }
 
         return newMovieLoadResponse(title, url, TvType.NSFW, url) {
             this.posterUrl = poster
             this.plot = description
+            this.tags = tags
         }
     }
 
@@ -104,44 +102,44 @@ override suspend fun getMainPage(page: Int, request: MainPageRequest): HomePageR
         subtitleCallback: (SubtitleFile) -> Unit,
         callback: (ExtractorLink) -> Unit
     ): Boolean {
-        val document = app.get(data).document
+        val response = app.get(data).document
 
-        // 1. Iframe Player
-        document.select("iframe.player-iframe, .player-iframe iframe").forEach { iframe ->
+        // 1. Ambil Iframe Langsung (Biasanya Streamtape)
+        response.select("iframe.player-iframe, .iframe-container iframe").forEach { iframe ->
             val src = fixUrl(iframe.attr("src"))
             loadExtractor(src, data, subtitleCallback, callback)
         }
 
-        // 2. Button loadStream
-        document.select("button.server-button").forEach { button ->
-            val onClick = button.attr("onclick")
-            if (onClick.contains("loadStream")) {
-                val matches = """'([^']*)'""".toRegex().findAll(onClick).map { it.groupValues[1] }.toList()
-                if (matches.size >= 2) {
-                    val baseUrl = matches[0]
-                    val id = matches[1]
-                    val fullUrl = if (baseUrl.endsWith("/")) "$baseUrl$id" else "$baseUrl/$id"
-                    loadExtractor(fullUrl, data, subtitleCallback, callback)
-                }
-            }
-        }
-
-        // 3. Logic rndmzr (Reverse)
-        document.select("script").forEach { script ->
-            val scriptData = script.data()
-            if (scriptData.contains("rndmzr")) {
+        // 2. Dekripsi Fungsi rndmzr() di dalam Script (Reverse ID)
+        response.select("script").forEach { script ->
+            val text = script.data()
+            if (text.contains("rndmzr")) {
                 val regex = """"(.*?)".rndmzr\(\)""".toRegex()
-                regex.findAll(scriptData).forEach { match ->
+                regex.findAll(text).forEach { match ->
                     val realId = match.groupValues[1].reversed()
-                    when {
-                        scriptData.contains("streamtape") -> 
-                            loadExtractor("https://streamtape.com/e/$realId", data, subtitleCallback, callback)
-                        scriptData.contains("sbembed") || scriptData.contains("sbvideo") -> 
-                            loadExtractor("https://sbembed2.com/e/$realId.html", data, subtitleCallback, callback)
+                    val host = if (text.contains("streamtape")) "https://streamtape.com/e/" 
+                              else if (text.contains("sbembed") || text.contains("sbvideo")) "https://sbplay2.com/e/"
+                              else ""
+                    
+                    if (host.isNotEmpty()) {
+                        loadExtractor("$host$realId", data, subtitleCallback, callback)
                     }
                 }
             }
         }
+
+        // 3. Tangkap Link dari Server Buttons
+        response.select("button.server-button").forEach { btn ->
+            val onclick = btn.attr("onclick")
+            if (onclick.contains("loadStream")) {
+                val matches = """'([^']*)'""".toRegex().findAll(onclick).map { it.groupValues[1] }.toList()
+                if (matches.size >= 2) {
+                    val finalUrl = if (matches[0].endsWith("/")) "${matches[0]}${matches[1]}" else "${matches[0]}/${matches[1]}"
+                    loadExtractor(fixUrl(finalUrl), data, subtitleCallback, callback)
+                }
+            }
+        }
+
         return true
     }
-} 
+}
