@@ -176,9 +176,9 @@ override suspend fun loadLinks(
     // 2. Fallback: Generate link berdasarkan kode JAV dari URL
     val javCodeMatch = Regex("/movies/([a-zA-Z0-9-]+)-sub-indo-").find(data)
     val javCode = javCodeMatch?.groupValues?.get(1)?.uppercase() ?: return linksAdded
-
+    val file = Regex("([a-zA-Z0-9-]+)").find(data)
     // Link standar: KODE.mp4
-    val standardUrl = "https://vod.podjav.tv/$javCode/$javCode.mp4"
+    val standardUrl = "https://vod.podjav.tv/$javCode/$file.mp4"
     callback(
         newExtractorLink(
             source = this.name,
@@ -219,6 +219,7 @@ override suspend fun loadLinks(
     return linksAdded
 }
 }
+
 
 
 
